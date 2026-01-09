@@ -295,10 +295,88 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
         {/* Registration table */}
         {!loading && registrations.length > 0 && (
           <>
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-4">
+              {paginatedRegistrations.map((registration) => (
+                <div
+                  key={registration.regnum}
+                  className="bg-white rounded-2xl shadow-md border border-gray-100 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {registration.transid}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(registration.regdate)} • {formatTime(registration.regdate)}
+                      </p>
+                    </div>
+                    <div className="shrink-0">{getStatusBadge(registration.status)}</div>
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">Province</span>
+                      <span className="text-gray-900 text-right">
+                        {registration.province || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">LGU</span>
+                      <span className="text-gray-900 text-right">{registration.lgu || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">Contact</span>
+                      <span className="text-gray-900 text-right">
+                        {registration.contactperson || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">Email</span>
+                      <span className="text-gray-900 text-right break-all">
+                        {registration.email || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-xs text-gray-500">Time left</span>
+                    <CountdownTimer
+                      registrationDate={registration.regdate}
+                      status={registration.status}
+                      onExpired={() => handleAutoRejectExpired(registration)}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleViewDetails(registration)}
+                      className="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                      title="View Details"
+                    >
+                      View details
+                    </button>
+                    {registration.status !== 'APPROVED' &&
+                      registration.status !== 'REJECTED' && (
+                        <button
+                          onClick={() => handleApproveReject(registration)}
+                          className="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                          title="Approve or Reject"
+                        >
+                          Review
+                        </button>
+                      )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block bg-white rounded-lg shadow-md overflow-hidden">
               {/* Items per page selector */}
-              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <div className="flex items-center gap-4">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                   <label htmlFor="itemsPerPage" className="text-sm font-medium text-gray-700">
                     Show:
                   </label>
@@ -324,6 +402,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                       `Showing ${startIndex + 1} to ${Math.min(endIndex, totalItems)} of ${totalItems} registrations`
                     )}
                   </span>
+                </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -441,8 +520,9 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
 
             {/* Pagination controls */}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between bg-white px-6 py-4 rounded-lg shadow-md">
-                <div className="flex items-center gap-2">
+              <div className="mt-4 bg-white px-4 sm:px-6 py-4 rounded-lg shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
@@ -450,7 +530,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                   >
                     Previous
                   </button>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 overflow-x-auto max-w-[70vw] sm:max-w-none">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNum: number;
                       if (totalPages <= 5) {
@@ -488,6 +568,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                 </div>
                 <div className="text-sm text-gray-700">
                   Page {currentPage} of {totalPages}
+                </div>
                 </div>
               </div>
             )}

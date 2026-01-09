@@ -15,6 +15,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Load sidebar state from localStorage
   useEffect(() => {
@@ -28,6 +29,11 @@ export default function DashboardLayout({
   useEffect(() => {
     localStorage.setItem('sidebarOpen', sidebarOpen.toString());
   }, [sidebarOpen]);
+
+  // Close mobile drawer on navigation
+  useEffect(() => {
+    setMobileDrawerOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     // Fetch user info
@@ -79,19 +85,149 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 bg-gray-900 text-white transition-all duration-300 ease-in-out z-30 ${
-        sidebarOpen ? 'w-64' : 'w-20'
-      }`}>
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      {/* Mobile top bar */}
+      <header className="lg:hidden fixed top-0 inset-x-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
+        <div className="h-14 px-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="inline-flex items-center justify-center rounded-md p-2 text-gray-700 hover:bg-gray-100"
+            aria-label="Open menu"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <div className="min-w-0 flex-1 px-3">
+            <p className="text-sm font-semibold text-gray-900 truncate">PhALGA Admin</p>
+            <p className="text-xs text-gray-500 truncate">{user.fullname || user.username}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center justify-center rounded-md p-2 text-red-700 hover:bg-red-50"
+            aria-label="Logout"
+            title="Logout"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile drawer */}
+      <div
+        className={`lg:hidden fixed inset-0 z-40 ${mobileDrawerOpen ? '' : 'pointer-events-none'}`}
+        aria-hidden={!mobileDrawerOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity ${mobileDrawerOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMobileDrawerOpen(false)}
+        />
+        <aside
+          className={`absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-gray-900 text-white shadow-2xl transform transition-transform ${
+            mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-gray-800 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold truncate">PhALGA Admin</h1>
+                <p className="text-sm text-gray-400 mt-1 truncate">Registration Committee</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-2 hover:bg-gray-800 rounded-md transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 p-3 space-y-2">
+              <Link
+                href="/dashboard"
+                className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+                  pathname === '/dashboard'
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`}
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="ml-3 font-medium">Registrations</span>
+              </Link>
+              {user.role === 'admin' && (
+                <>
+                  <Link
+                    href="/dashboard/download-participants"
+                    className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/download-participants'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-300 hover:bg-gray-800'
+                    }`}
+                  >
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="ml-3 font-medium">Download Participant List</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/users"
+                    className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/users'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-300 hover:bg-gray-800'
+                    }`}
+                  >
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="ml-3 font-medium">User Management</span>
+                  </Link>
+                </>
+              )}
+            </nav>
+            <div className="p-4 border-t border-gray-800">
+              <div className="mb-4">
+                <p className="text-sm font-medium">{user.fullname || user.username}</p>
+                <p className="text-xs text-gray-400 capitalize">{user.role}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={`hidden lg:block fixed inset-y-0 left-0 bg-gray-900 text-white transition-all duration-300 ease-in-out z-30 ${
+          sidebarOpen ? 'w-64' : 'w-20'
+        }`}
+      >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-gray-800">
             <div className="flex items-center justify-between">
               {sidebarOpen ? (
                 <>
-                  <div className="flex-1">
-                    <h1 className="text-xl font-bold">PhALGA Admin</h1>
-                    <p className="text-sm text-gray-400 mt-1">Registration Committee</p>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-xl font-bold truncate">PhALGA Admin</h1>
+                    <p className="text-sm text-gray-400 mt-1 truncate">Registration Committee</p>
                   </div>
                   <button
                     onClick={() => setSidebarOpen(false)}
@@ -123,7 +259,9 @@ export default function DashboardLayout({
           <nav className="flex-1 p-4 space-y-2">
             <Link
               href="/dashboard"
-              className={`flex items-center ${sidebarOpen ? 'px-4' : 'px-3 justify-center'} py-3 rounded-lg transition-all duration-200 group ${
+              className={`flex items-center ${
+                sidebarOpen ? 'px-4' : 'px-3 justify-center'
+              } py-3 rounded-lg transition-all duration-200 group ${
                 pathname === '/dashboard'
                   ? 'bg-gray-800 text-white'
                   : 'text-gray-300 hover:bg-gray-800'
@@ -134,14 +272,18 @@ export default function DashboardLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               {sidebarOpen && (
-                <span className="ml-3 font-medium transition-opacity duration-300">Registrations</span>
+                <span className="ml-3 font-medium transition-opacity duration-300">
+                  Registrations
+                </span>
               )}
             </Link>
             {user.role === 'admin' && (
               <>
                 <Link
                   href="/dashboard/download-participants"
-                  className={`flex items-center ${sidebarOpen ? 'px-4' : 'px-3 justify-center'} py-3 rounded-lg transition-all duration-200 group ${
+                  className={`flex items-center ${
+                    sidebarOpen ? 'px-4' : 'px-3 justify-center'
+                  } py-3 rounded-lg transition-all duration-200 group ${
                     pathname === '/dashboard/download-participants'
                       ? 'bg-gray-800 text-white'
                       : 'text-gray-300 hover:bg-gray-800'
@@ -152,12 +294,16 @@ export default function DashboardLayout({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   {sidebarOpen && (
-                    <span className="ml-3 font-medium transition-opacity duration-300">Download Participant List</span>
+                    <span className="ml-3 font-medium transition-opacity duration-300">
+                      Download Participant List
+                    </span>
                   )}
                 </Link>
                 <Link
                   href="/dashboard/users"
-                  className={`flex items-center ${sidebarOpen ? 'px-4' : 'px-3 justify-center'} py-3 rounded-lg transition-all duration-200 group ${
+                  className={`flex items-center ${
+                    sidebarOpen ? 'px-4' : 'px-3 justify-center'
+                  } py-3 rounded-lg transition-all duration-200 group ${
                     pathname === '/dashboard/users'
                       ? 'bg-gray-800 text-white'
                       : 'text-gray-300 hover:bg-gray-800'
@@ -168,20 +314,28 @@ export default function DashboardLayout({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                   {sidebarOpen && (
-                    <span className="ml-3 font-medium transition-opacity duration-300">User Management</span>
+                    <span className="ml-3 font-medium transition-opacity duration-300">
+                      User Management
+                    </span>
                   )}
                 </Link>
               </>
             )}
           </nav>
           <div className="p-4 border-t border-gray-800">
-            <div className={`mb-4 transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 h-0 mb-0 overflow-hidden'}`}>
+            <div
+              className={`mb-4 transition-opacity duration-300 ${
+                sidebarOpen ? 'opacity-100' : 'opacity-0 h-0 mb-0 overflow-hidden'
+              }`}
+            >
               <p className="text-sm font-medium">{user.fullname || user.username}</p>
               <p className="text-xs text-gray-400 capitalize">{user.role}</p>
             </div>
             <button
               onClick={handleLogout}
-              className={`w-full ${sidebarOpen ? 'px-4' : 'px-3'} py-2 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition-all duration-200 flex items-center justify-center gap-2`}
+              className={`w-full ${
+                sidebarOpen ? 'px-4' : 'px-3'
+              } py-2 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition-all duration-200 flex items-center justify-center gap-2`}
               title="Logout"
             >
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,7 +348,11 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className={`transition-all duration-300 ease-in-out p-8 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
+      <main
+        className={`transition-all duration-300 ease-in-out px-4 py-4 sm:px-6 sm:py-6 lg:p-8 pt-20 lg:pt-8 ${
+          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        }`}
+      >
         {children}
       </main>
     </div>

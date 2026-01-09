@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface PaymentProofViewerProps {
   regnum: number;
@@ -13,11 +13,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    fetchPaymentProof();
-  }, [regnum]);
-
-  const fetchPaymentProof = async () => {
+  const fetchPaymentProof = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -35,7 +31,11 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
     } finally {
       setLoading(false);
     }
-  };
+  }, [regnum]);
+
+  useEffect(() => {
+    fetchPaymentProof();
+  }, [fetchPaymentProof]);
 
   if (loading) {
     return (
@@ -81,7 +81,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
         <div className="flex items-center gap-3 mb-3">
           <span className="text-sm text-green-700 font-medium">✓ Payment proof has been uploaded</span>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => setShowModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm hover:shadow"
@@ -144,8 +144,8 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+            <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                 Payment Proof - Transaction ID: {transid}
               </h3>
               <button
@@ -161,6 +161,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
             {/* Modal Content */}
             <div className="p-6 overflow-auto max-h-[calc(90vh-80px)] flex items-center justify-center bg-gray-50">
               {isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={proofUrl}
                   alt="Payment Proof"

@@ -135,17 +135,19 @@ export default function RegistrationDetailModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
         <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8">
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Registration Details</h2>
-              <p className="text-sm text-gray-600 mt-1">Transaction ID: {currentRegistration.transid}</p>
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Registration Details</h2>
+              <p className="text-sm text-gray-600 mt-1 break-words">
+                Transaction ID: {currentRegistration.transid}
+              </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -154,10 +156,10 @@ export default function RegistrationDetailModal({
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Registration Information */}
-            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="flex justify-between items-start mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 sm:p-6 mb-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Registration Information</h3>
                   {currentRegistration.status === 'PENDING' && currentRegistration.regdate && (
@@ -228,7 +230,7 @@ export default function RegistrationDetailModal({
                 <div className="mt-6">
                   <button
                     onClick={() => setShowApprovalModal(true)}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
                   >
                     Approve/Reject Registration
                   </button>
@@ -238,7 +240,7 @@ export default function RegistrationDetailModal({
 
             {/* Participants */}
             {currentRegistration.regd && currentRegistration.regd.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-6">
+              <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Participants ({currentRegistration.regd.length})
                 </h3>
@@ -285,7 +287,7 @@ export default function RegistrationDetailModal({
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end">
+          <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-4 sm:px-6 py-4 flex justify-end">
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
