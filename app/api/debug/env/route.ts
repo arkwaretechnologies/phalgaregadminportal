@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering - this route checks environment variables
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   // Only expose in development
   if (process.env.NODE_ENV === 'production') {

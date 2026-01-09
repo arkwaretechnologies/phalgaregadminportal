@@ -4,6 +4,9 @@ import { requireAuth } from '@/lib/auth';
 import { Registration } from '@/types';
 import { sendStatusUpdateEmail } from '@/lib/email';
 
+// Force dynamic rendering - this route uses Supabase
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and role

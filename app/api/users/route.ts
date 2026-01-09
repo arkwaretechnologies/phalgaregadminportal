@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { requireAuth, hashPassword } from '@/lib/auth';
 import { User } from '@/types';
 
+// Force dynamic rendering - this route uses Supabase
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // Check authentication - admin only
