@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { RegistrationDetail } from '@/types';
 import ApprovalModal from './ApprovalModal';
 import CountdownTimer from './CountdownTimer';
@@ -22,12 +22,22 @@ export default function RegistrationDetailModal({
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [currentRegistration, setCurrentRegistration] = useState<RegistrationDetail>(registration);
 
+  const autoRejectInFlight = useRef(false);
+  const hasRefreshedAfterAutoReject = useRef(false);
+  const AUTO_REJECT_REFRESH_KEY = 'phalga:autoRejectRefreshed';
+  const AUTO_REJECT_REMARK =
+    'Unable to Upload Payment Proof within 24 hours of submission.';
+
   // Update local registration state when prop changes
   useEffect(() => {
     setCurrentRegistration(registration);
   }, [registration]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    hasRefreshedAfterAutoReject.current =
+      window.sessionStorage.getItem(AUTO_REJECT_REFRESH_KEY) === '1';
+  }, []);
 
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
@@ -76,6 +86,53 @@ export default function RegistrationDetailModal({
     onUpdate();
   };
 
+  const handleAutoRejectExpired = useCallback(async () => {
+    const normalizedStatus = currentRegistration.status?.toUpperCase() || null;
+    if (normalizedStatus !== 'PENDING') return;
+    if (autoRejectInFlight.current) return;
+
+    autoRejectInFlight.current = true;
+    try {
+      const response = await fetch('/api/registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          regnum: currentRegistration.regnum,
+          status: 'REJECTED',
+          remarks: AUTO_REJECT_REMARK,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        console.error('Auto-reject failed:', err || response.statusText);
+        return;
+      }
+
+      setCurrentRegistration((prev) => ({
+        ...prev,
+        status: 'REJECTED',
+        remarks: AUTO_REJECT_REMARK,
+      }));
+
+      onUpdate();
+
+      // Refresh exactly once (requested)
+      if (
+        typeof window !== 'undefined' &&
+        !hasRefreshedAfterAutoReject.current
+      ) {
+        hasRefreshedAfterAutoReject.current = true;
+        window.sessionStorage.setItem(AUTO_REJECT_REFRESH_KEY, '1');
+        window.location.reload();
+      }
+    } finally {
+      autoRejectInFlight.current = false;
+    }
+  }, [AUTO_REJECT_REMARK, currentRegistration.regnum, currentRegistration.status, onUpdate]);
+
+  if (!isOpen) return null;
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -109,8 +166,7 @@ export default function RegistrationDetailModal({
                       <CountdownTimer
                         registrationDate={currentRegistration.regdate}
                         status={currentRegistration.status}
-                        // Don't trigger refresh on expired - server-side auto-rejection handles it
-                        // The status will update on next manual refresh or when modal is reopened
+                        onExpired={handleAutoRejectExpired}
                       />
                     </div>
                   )}

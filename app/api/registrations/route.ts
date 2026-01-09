@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
             // Auto-reject expired registrations
             // Only update if still PENDING to avoid race conditions
             try {
-              const rejectionRemarks = 'We regret to inform you that your submission expired and rejected.';
+              const rejectionRemarks = 'Unable to Upload Payment Proof within 24 hours of submission.';
               
               const { data: updatedRegs, error: updateError } = await supabase
                 .from('regh')

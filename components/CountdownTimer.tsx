@@ -16,6 +16,12 @@ export default function CountdownTimer({
   const [timeLeft, setTimeLeft] = useState<string>('--:--:--');
   const [isExpired, setIsExpired] = useState(false);
   const hasCalledOnExpired = useRef(false);
+  const onExpiredRef = useRef<CountdownTimerProps['onExpired']>(onExpired);
+
+  // Keep latest callback without retriggering the timer effect (prevents re-render loops)
+  useEffect(() => {
+    onExpiredRef.current = onExpired;
+  }, [onExpired]);
 
   useEffect(() => {
     // Reset the expired flag when status or registration date changes
@@ -40,9 +46,9 @@ export default function CountdownTimer({
         setIsExpired(true);
         setTimeLeft('EXPIRED');
         // Only call onExpired once per expiration
-        if (onExpired && !hasCalledOnExpired.current) {
+        if (onExpiredRef.current && !hasCalledOnExpired.current) {
           hasCalledOnExpired.current = true;
-          onExpired();
+          onExpiredRef.current();
         }
         return;
       }
@@ -64,7 +70,7 @@ export default function CountdownTimer({
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [registrationDate, status, onExpired]);
+  }, [registrationDate, status]);
 
   // Normalize status to uppercase for comparison
   const normalizedStatus = status?.toUpperCase() || null;

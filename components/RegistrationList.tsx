@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Registration, RegistrationDetail } from '@/types';
 import ApprovalModal from './ApprovalModal';
 import RegistrationDetailModal from './RegistrationDetailModal';
@@ -21,6 +21,12 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
   const [registrationDetail, setRegistrationDetail] = useState<RegistrationDetail | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
+
+  const autoRejectInFlight = useRef<Set<number>>(new Set());
+  const hasRefreshedAfterAutoReject = useRef(false);
+  const AUTO_REJECT_REFRESH_KEY = 'phalga:autoRejectRefreshed';
+  const AUTO_REJECT_REMARK =
+    'Unable to Upload Payment Proof within 24 hours of submission.';
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -50,6 +56,12 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
   useEffect(() => {
     fetchRegistrations();
   }, [fetchRegistrations]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    hasRefreshedAfterAutoReject.current =
+      window.sessionStorage.getItem(AUTO_REJECT_REFRESH_KEY) === '1';
+  }, []);
 
   // Calculate pagination
   const totalItems = registrations.length;
@@ -149,6 +161,57 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
   const handleDetailUpdate = () => {
     fetchRegistrations();
   };
+
+  const handleAutoRejectExpired = useCallback(
+    async (registration: Registration) => {
+      const regnum = registration.regnum;
+      const normalizedStatus = registration.status?.toUpperCase() || null;
+
+      if (normalizedStatus !== 'PENDING') return;
+      if (autoRejectInFlight.current.has(regnum)) return;
+
+      autoRejectInFlight.current.add(regnum);
+      try {
+        const response = await fetch('/api/registrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            regnum,
+            status: 'REJECTED',
+            remarks: AUTO_REJECT_REMARK,
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => null);
+          console.error('Auto-reject failed:', err || response.statusText);
+          return;
+        }
+
+        // Update local UI immediately
+        setRegistrations((prev) =>
+          prev.map((r) =>
+            r.regnum === regnum
+              ? { ...r, status: 'REJECTED', remarks: AUTO_REJECT_REMARK }
+              : r
+          )
+        );
+
+        // Refresh exactly once (requested) after sending
+        if (
+          typeof window !== 'undefined' &&
+          !hasRefreshedAfterAutoReject.current
+        ) {
+          hasRefreshedAfterAutoReject.current = true;
+          window.sessionStorage.setItem(AUTO_REJECT_REFRESH_KEY, '1');
+          window.location.reload();
+        }
+      } finally {
+        autoRejectInFlight.current.delete(regnum);
+      }
+    },
+    [AUTO_REJECT_REMARK]
+  );
 
   return (
     <>
@@ -366,8 +429,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                         <CountdownTimer
                           registrationDate={registration.regdate}
                           status={registration.status}
-                          // Don't trigger refresh on expired - server-side auto-rejection handles it
-                          // Client refresh will happen naturally on next data fetch
+                          onExpired={() => handleAutoRejectExpired(registration)}
                         />
                       </td>
                     </tr>
