@@ -1,0 +1,175 @@
+'use client';
+
+import { useState } from 'react';
+import { Registration } from '@/types';
+
+interface ApprovalModalProps {
+  registration: Registration;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export default function ApprovalModal({
+  registration,
+  isOpen,
+  onClose,
+  onSuccess,
+}: ApprovalModalProps) {
+  const [action, setAction] = useState<'approve' | 'reject'>('approve');
+  const [remarks, setRemarks] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (action === 'reject' && !remarks.trim()) {
+      setError('Remarks are required when rejecting a registration');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/registrations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          regnum: registration.regnum,
+          status: action === 'approve' ? 'APPROVED' : 'REJECTED',
+          remarks: remarks.trim() || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.details 
+          ? `${data.error}: ${data.details}` 
+          : data.error || 'Failed to update registration';
+        setError(errorMessage);
+        setLoading(false);
+        return;
+      }
+
+      onSuccess();
+      onClose();
+      setRemarks('');
+      setAction('approve');
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h2 className="text-xl font-bold mb-4">
+          {action === 'approve' ? 'Approve' : 'Reject'} Registration
+        </h2>
+
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-2">Transaction ID: {registration.transid}</p>
+          <p className="text-sm text-gray-600">Contact: {registration.contactperson || 'N/A'}</p>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Action
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="approve"
+                  checked={action === 'approve'}
+                  onChange={(e) => {
+                    setAction(e.target.value as 'approve');
+                    setError('');
+                  }}
+                  className="mr-2"
+                  disabled={loading}
+                />
+                Approve
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="reject"
+                  checked={action === 'reject'}
+                  onChange={(e) => {
+                    setAction(e.target.value as 'reject');
+                    setError('');
+                  }}
+                  className="mr-2"
+                  disabled={loading}
+                />
+                Reject
+              </label>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label
+              htmlFor="remarks"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Remarks {action === 'reject' && <span className="text-red-500">*</span>}
+            </label>
+            <textarea
+              id="remarks"
+              rows={4}
+              value={remarks}
+              onChange={(e) => {
+                setRemarks(e.target.value);
+                setError('');
+              }}
+              placeholder={action === 'reject' ? 'Enter rejection reason...' : 'Optional remarks...'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              disabled={loading}
+              required={action === 'reject'}
+            />
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
+                action === 'approve'
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              {loading ? 'Processing...' : action === 'approve' ? 'Approve' : 'Reject'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+

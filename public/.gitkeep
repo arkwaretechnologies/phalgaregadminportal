@@ -1,0 +1,4 @@
+# This folder contains static assets like logos, images, etc.
+# Files in this folder can be accessed at the root URL
+# Example: /logo.png will serve public/logo.png
+
