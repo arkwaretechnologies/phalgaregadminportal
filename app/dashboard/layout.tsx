@@ -90,7 +90,7 @@ export default function DashboardLayout({
               {sidebarOpen ? (
                 <>
                   <div className="flex-1">
-                    <h1 className="text-xl font-bold">Phalga Admin</h1>
+                    <h1 className="text-xl font-bold">PhALGA Admin</h1>
                     <p className="text-sm text-gray-400 mt-1">Registration Committee</p>
                   </div>
                   <button
