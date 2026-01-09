@@ -93,7 +93,7 @@ export default function LoginPage() {
 
           <div className="text-center mb-8">
             <h2 className="text-4xl font-bold mb-2 animate-slide-down tracking-tight">
-              <span className="text-indigo-600">PHALGA</span>
+              <span className="text-indigo-600">PhALGA</span>
             </h2>
             <p className="text-gray-600 text-sm font-medium animate-slide-down animation-delay-100 mt-2">
               Registration Committee Portal
