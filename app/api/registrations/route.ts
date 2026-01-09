@@ -56,8 +56,9 @@ export async function GET(request: NextRequest) {
           
           if (now.getTime() > deadline) {
             // Auto-reject expired registrations
+            // Only update if still PENDING to avoid race conditions
             try {
-              const rejectionRemarks = 'Sorry, We haven\'t received payment and the submission expired';
+              const rejectionRemarks = 'We regret to inform you that your submission expired and rejected.';
               
               const { data: updatedRegs, error: updateError } = await supabase
                 .from('regh')
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
                   remarks: rejectionRemarks,
                 })
                 .eq('regnum', reg.regnum)
+                .eq('status', 'PENDING') // Only update if still PENDING to prevent loops
                 .select();
 
               if (updateError) {

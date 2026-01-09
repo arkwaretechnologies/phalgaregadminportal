@@ -109,21 +109,8 @@ export default function RegistrationDetailModal({
                       <CountdownTimer
                         registrationDate={currentRegistration.regdate}
                         status={currentRegistration.status}
-                        onExpired={() => {
-                          // Refresh the modal data when expired
-                          setTimeout(async () => {
-                            try {
-                              const response = await fetch(`/api/registrations/${currentRegistration.regnum}`);
-                              const data = await response.json();
-                              if (response.ok && data.registration) {
-                                setCurrentRegistration(data.registration);
-                              }
-                            } catch (error) {
-                              console.error('Error fetching updated registration:', error);
-                            }
-                            onUpdate();
-                          }, 1000);
-                        }}
+                        // Don't trigger refresh on expired - server-side auto-rejection handles it
+                        // The status will update on next manual refresh or when modal is reopened
                       />
                     </div>
                   )}

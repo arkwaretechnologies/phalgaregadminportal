@@ -366,12 +366,8 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                         <CountdownTimer
                           registrationDate={registration.regdate}
                           status={registration.status}
-                          onExpired={() => {
-                            // Refresh registrations when one expires
-                            setTimeout(() => {
-                              fetchRegistrations();
-                            }, 1000);
-                          }}
+                          // Don't trigger refresh on expired - server-side auto-rejection handles it
+                          // Client refresh will happen naturally on next data fetch
                         />
                       </td>
                     </tr>
