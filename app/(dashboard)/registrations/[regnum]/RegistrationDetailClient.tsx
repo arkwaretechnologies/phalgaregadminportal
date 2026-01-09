@@ -22,13 +22,13 @@ export default function RegistrationDetailClient({
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
-      case 'approved':
+      case 'APPROVED':
         return (
           <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
             Approved
           </span>
         );
-      case 'rejected':
+      case 'REJECTED':
         return (
           <span className="px-3 py-1 text-sm font-semibold rounded-full bg-red-100 text-red-800">
             Rejected
@@ -117,7 +117,7 @@ export default function RegistrationDetailClient({
             </div>
           )}
 
-          {registration.status !== 'approved' && registration.status !== 'rejected' && (
+          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
             <div className="mt-6">
               <button
                 onClick={() => setShowModal(true)}
