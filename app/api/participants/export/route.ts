@@ -56,31 +56,43 @@ export async function GET(request: NextRequest) {
     }
 
     if (!approvedRegistrations || approvedRegistrations.length === 0) {
-      // Return empty CSV with headers
-      const headers = [
-        'Transaction ID',
-        'Registration Number',
-        'Registration Date',
-        'Confirmation Code',
-        'Province',
-        'LGU',
-        'Contact Person',
-        'Contact Number',
-        'Email',
-        'Participant Line Number',
-        'Last Name',
-        'First Name',
-        'Middle Initial',
-        'Designation',
-        'Barangay',
-        'Participant LGU',
-        'Participant Province',
-        'T-Shirt Size',
-        'Participant Contact Number',
-        'PRC Number',
-        'PRC Expiry Date',
-        'Participant Email'
-      ].join(',');
+      // Get regd columns structure for empty CSV with headers
+      const { data: sampleParticipants } = await supabase
+        .from('regd')
+        .select('*')
+        .limit(1);
+
+      let regdColumns: string[] = [];
+      if (sampleParticipants && sampleParticipants.length > 0) {
+        // Preserve column order as it comes from Supabase (don't sort)
+        regdColumns = Object.keys(sampleParticipants[0]);
+      } else {
+        // Fallback: use known columns from type definition
+        regdColumns = [
+          'confcode',
+          'regnum',
+          'linenum',
+          'lastname',
+          'firstname',
+          'middleinit',
+          'designation',
+          'brgy',
+          'lgu',
+          'province',
+          'tshirtsize',
+          'contactnum',
+          'prcnum',
+          'expirydate',
+          'email'
+        ];
+      }
+
+      // Return empty CSV with headers (all regd columns)
+      const headers = regdColumns.map(col => {
+        return col
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+      }).join(',');
       
       return new NextResponse(headers, {
         headers: {
@@ -90,7 +102,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch all participants (regd) for approved registrations
+    // Fetch all regd rows where regnum is in approved registrations
+    // This ensures we get all regd columns and filter by approved status
     const regnums = approvedRegistrations.map(reg => reg.regnum);
     
     const { data: participants, error: participantError } = await supabase
@@ -108,112 +121,80 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Create a map of registration numbers to registration data
-    const regMap = new Map(approvedRegistrations.map(reg => [reg.regnum, reg]));
-
-    // Group participants by registration number
-    const participantsByRegnum = new Map<number, any[]>();
+    // Get all unique column names from regd table (from all participants to ensure we capture all columns)
+    // Preserve the column order as it comes from Supabase
+    let regdColumns: string[] = [];
     if (participants && participants.length > 0) {
-      for (const participant of participants) {
-        const regnum = participant.regnum;
-        if (!participantsByRegnum.has(regnum)) {
-          participantsByRegnum.set(regnum, []);
-        }
-        participantsByRegnum.get(regnum)!.push(participant);
-      }
+      // Use the first participant to get the column order (Supabase preserves column order)
+      const firstParticipant = participants[0];
+      const baseOrder = Object.keys(firstParticipant);
+      
+      // Collect all unique keys from all participants
+      const allKeys = new Set<string>();
+      participants.forEach(p => {
+        Object.keys(p).forEach(key => allKeys.add(key));
+      });
+      
+      // Preserve the order from first participant, then add any additional columns at the end
+      regdColumns = [
+        ...baseOrder.filter(key => allKeys.has(key)),
+        ...Array.from(allKeys).filter(key => !baseOrder.includes(key))
+      ];
+    } else {
+      // Fallback: use known columns from type definition
+      regdColumns = [
+        'confcode',
+        'regnum',
+        'linenum',
+        'lastname',
+        'firstname',
+        'middleinit',
+        'designation',
+        'brgy',
+        'lgu',
+        'province',
+        'tshirtsize',
+        'contactnum',
+        'prcnum',
+        'expirydate',
+        'email'
+      ];
     }
 
     // Build CSV content
     const csvRows: string[] = [];
     
-    // CSV Headers
-    csvRows.push([
-      'Transaction ID',
-      'Registration Number',
-      'Registration Date',
-      'Confirmation Code',
-      'Province',
-      'LGU',
-      'Contact Person',
-      'Contact Number',
-      'Email',
-      'Participant Line Number',
-      'Last Name',
-      'First Name',
-      'Middle Initial',
-      'Designation',
-      'Barangay',
-      'Participant LGU',
-      'Participant Province',
-      'T-Shirt Size',
-      'Participant Contact Number',
-      'PRC Number',
-      'PRC Expiry Date',
-      'Participant Email'
-    ].map(escapeCSV).join(','));
+    // CSV Headers: All columns from regd table
+    const headers = regdColumns.map(col => {
+      // Convert snake_case to Title Case with spaces
+      return col
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+    });
+    
+    csvRows.push(headers.map(escapeCSV).join(','));
 
-    // Process each approved registration
-    for (const registration of approvedRegistrations) {
-      const regParticipants = participantsByRegnum.get(registration.regnum) || [];
-      
-      if (regParticipants.length > 0) {
-        // Add one row per participant
-        for (const participant of regParticipants) {
-          const lastName = escapeCSV(participant.lastname);
-          const firstName = escapeCSV(participant.firstname);
-          const middleInit = escapeCSV(participant.middleinit);
+    // Helper function to format a value for CSV (handles dates)
+    function formatValueForCSV(value: any, columnName: string): string {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      // Format dates if column name suggests it's a date
+      if (columnName.includes('date') || columnName.includes('expiry')) {
+        return escapeCSV(formatDate(value));
+      }
+      return escapeCSV(value);
+    }
 
-          csvRows.push([
-            escapeCSV(registration.transid || ''),
-            escapeCSV(registration.regnum),
-            escapeCSV(formatDate(registration.regdate || null)),
-            escapeCSV(registration.confcode || ''),
-            escapeCSV(registration.province || ''),
-            escapeCSV(registration.lgu || ''),
-            escapeCSV(registration.contactperson || ''),
-            escapeCSV(registration.contactnum || ''),
-            escapeCSV(registration.email || ''),
-            escapeCSV(participant.linenum),
-            lastName,
-            firstName,
-            middleInit,
-            escapeCSV(participant.designation || ''),
-            escapeCSV(participant.brgy || ''),
-            escapeCSV(participant.lgu || ''),
-            escapeCSV(participant.province || ''),
-            escapeCSV(participant.tshirtsize || ''),
-            escapeCSV(participant.contactnum || ''),
-            escapeCSV(participant.prcnum || ''),
-            escapeCSV(formatDate(participant.expirydate || null)),
-            escapeCSV(participant.email || '')
-          ].join(','));
-        }
-      } else {
-        // If no participants for this registration, include registration info with empty participant fields
-        csvRows.push([
-          escapeCSV(registration.transid || ''),
-          escapeCSV(registration.regnum),
-          escapeCSV(formatDate(registration.regdate || null)),
-          escapeCSV(registration.confcode || ''),
-          escapeCSV(registration.province || ''),
-          escapeCSV(registration.lgu || ''),
-          escapeCSV(registration.contactperson || ''),
-          escapeCSV(registration.contactnum || ''),
-          escapeCSV(registration.email || ''),
-          '', // Participant Line Number
-          '', // Last Name
-          '', // First Name
-          '', // Middle Initial
-          '', // Designation
-          '', // Barangay
-          '', // Participant LGU
-          '', // Participant Province
-          '', // T-Shirt Size
-          '', // Participant Contact Number
-          '', // PRC Number
-          '', // PRC Expiry Date
-          ''  // Participant Email
-        ].join(','));
+    // Process all participants (already filtered to only approved registrations)
+    if (participants && participants.length > 0) {
+      for (const participant of participants) {
+        // Add one row per participant with all regd columns
+        const row = regdColumns.map(col => {
+          const value = participant[col];
+          return formatValueForCSV(value, col);
+        });
+        csvRows.push(row.join(','));
       }
     }
 
