@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { RegistrationDetail } from '@/types';
 import RegistrationDetailClient from './RegistrationDetailClient';
 
+// Force dynamic rendering - this page requires authentication and database access
+export const dynamic = 'force-dynamic';
+
 async function getRegistration(regnum: number): Promise<RegistrationDetail | null> {
   try {
     // Fetch registration header

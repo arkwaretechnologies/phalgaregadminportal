@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { Registration } from '@/types';
 import RegistrationList from '@/components/RegistrationList';
 
+// Force dynamic rendering - this page requires authentication and database access
+export const dynamic = 'force-dynamic';
+
 async function getRegistrations(status: string = 'all', search: string = ''): Promise<Registration[]> {
   try {
     let query = supabase

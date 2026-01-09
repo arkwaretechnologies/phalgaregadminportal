@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 import UserTable from '@/components/UserTable';
 
+// Force dynamic rendering - this page requires authentication and database access
+export const dynamic = 'force-dynamic';
+
 async function getUsers(): Promise<User[]> {
   try {
     const { data: users, error } = await supabase
