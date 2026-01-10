@@ -13,21 +13,36 @@ export default function DownloadParticipantsPage() {
   const [loadingConferences, setLoadingConferences] = useState(true);
   const [downloadFormat, setDownloadFormat] = useState<'csv' | 'sql'>('csv');
 
-  // Fetch conferences on mount
+  // Fetch conferences and default config on mount
   useEffect(() => {
-    const fetchConferences = async () => {
+    const fetchData = async () => {
       setLoadingConferences(true);
       try {
-        const response = await fetch('/api/conferences');
-        const data = await response.json();
+        // Fetch conferences
+        const confResponse = await fetch('/api/conferences');
+        const confData = await confResponse.json();
+        
+        // Fetch default conference from config
+        let defaultConfcode: string | null = null;
+        try {
+          const configResponse = await fetch('/api/config');
+          const configData = await configResponse.json();
+          if (configResponse.ok && configData.config?.DEFAULT_CONFERENCE) {
+            defaultConfcode = configData.config.DEFAULT_CONFERENCE;
+          }
+        } catch {
+          // Ignore config fetch errors
+        }
 
-        if (response.ok) {
-          const fetchedConferences = data.conferences || [];
+        if (confResponse.ok) {
+          const fetchedConferences = confData.conferences || [];
           setConferences(fetchedConferences);
 
-          // Default to the first conference if available and no conference is selected
+          // Default to config default, or first conference if no default set
           if (fetchedConferences.length > 0 && !selectedConfcode) {
-            setSelectedConfcode(fetchedConferences[0].confcode);
+            // Check if default conf exists in the list
+            const defaultExists = defaultConfcode && fetchedConferences.some((c: Conference) => c.confcode === defaultConfcode);
+            setSelectedConfcode(defaultExists ? defaultConfcode : fetchedConferences[0].confcode);
           }
         }
       } catch (error) {
@@ -37,7 +52,7 @@ export default function DownloadParticipantsPage() {
       }
     };
 
-    fetchConferences();
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

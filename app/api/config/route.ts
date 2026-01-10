@@ -4,12 +4,13 @@ import { requireAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-type ConfigKey = 'PROVINCE_LGU_LIMIT' | 'REGISTRATION_LIMIT' | 'REGISTRATION_DEADLINE';
+type ConfigKey = 'PROVINCE_LGU_LIMIT' | 'REGISTRATION_LIMIT' | 'REGISTRATION_DEADLINE' | 'DEFAULT_CONFERENCE';
 
 const KNOWN_KEYS: ConfigKey[] = [
   'PROVINCE_LGU_LIMIT',
   'REGISTRATION_LIMIT',
   'REGISTRATION_DEADLINE',
+  'DEFAULT_CONFERENCE',
 ];
 
 function normalizeOptionalInt(value: unknown): string | null {
@@ -79,6 +80,9 @@ export async function PUT(request: NextRequest) {
     const municipalityLimit = normalizeOptionalInt((body as any).PROVINCE_LGU_LIMIT);
     const registrationLimit = normalizeOptionalInt((body as any).REGISTRATION_LIMIT);
     const deadlineIso = normalizeOptionalDate((body as any).REGISTRATION_DEADLINE);
+    const defaultConference = (body as any).DEFAULT_CONFERENCE !== undefined 
+      ? ((body as any).DEFAULT_CONFERENCE || null) 
+      : undefined;
 
     // Your existing config table may not have a UNIQUE constraint on paramname,
     // so we avoid UPSERT (ON CONFLICT) and do update-then-insert.
@@ -87,6 +91,11 @@ export async function PUT(request: NextRequest) {
       { paramname: 'REGISTRATION_LIMIT', paramvalue: registrationLimit },
       { paramname: 'REGISTRATION_DEADLINE', paramvalue: deadlineIso },
     ];
+    
+    // Only update DEFAULT_CONFERENCE if it was provided in the request
+    if (defaultConference !== undefined) {
+      updates.push({ paramname: 'DEFAULT_CONFERENCE', paramvalue: defaultConference });
+    }
 
     for (const u of updates) {
       const { data: updated, error: updateError } = await supabase

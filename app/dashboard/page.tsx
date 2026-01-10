@@ -85,8 +85,35 @@ export default async function DashboardPage({
   const search = searchParams?.search || '';
   let confcode = searchParams?.confcode || null;
   
-  // If no confcode is provided, default to the first conference
+  // If no confcode is provided, use the default from config or fall back to first conference
   if (!confcode) {
+    // First, check for default conference in config
+    const { data: configData } = await supabase
+      .from('config')
+      .select('paramvalue')
+      .eq('paramname', 'DEFAULT_CONFERENCE')
+      .maybeSingle();
+    
+    const defaultConfcode = configData?.paramvalue || null;
+    
+    if (defaultConfcode) {
+      // Verify this conference still exists
+      const { data: confExists } = await supabase
+        .from('conference')
+        .select('confcode')
+        .eq('confcode', defaultConfcode)
+        .maybeSingle();
+      
+      if (confExists) {
+        const params = new URLSearchParams();
+        params.set('confcode', defaultConfcode);
+        if (status !== 'all') params.set('status', status);
+        if (search) params.set('search', search);
+        redirect(`/dashboard?${params.toString()}`);
+      }
+    }
+    
+    // Fall back to first conference if no valid default
     const { data: conferences } = await supabase
       .from('conference')
       .select('confcode')

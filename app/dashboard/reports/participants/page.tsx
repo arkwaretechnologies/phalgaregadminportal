@@ -26,6 +26,19 @@ async function getConferences(): Promise<Conference[]> {
   }
 }
 
+async function getDefaultConference(): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('config')
+      .select('paramvalue')
+      .eq('paramname', 'DEFAULT_CONFERENCE')
+      .maybeSingle();
+    return data?.paramvalue || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function ApprovedParticipantsPage({
   searchParams,
 }: {
@@ -38,7 +51,18 @@ export default async function ApprovedParticipantsPage({
   }
 
   const conferences = await getConferences();
-  const confcode = searchParams?.confcode || (conferences.length > 0 ? conferences[0].confcode : null);
+  
+  // Use URL param, then default from config, then first conference
+  let confcode = searchParams?.confcode || null;
+  if (!confcode) {
+    const defaultConf = await getDefaultConference();
+    // Verify default conference exists
+    if (defaultConf && conferences.some(c => c.confcode === defaultConf)) {
+      confcode = defaultConf;
+    } else if (conferences.length > 0) {
+      confcode = conferences[0].confcode;
+    }
+  }
 
   return (
     <ApprovedParticipantsClient
