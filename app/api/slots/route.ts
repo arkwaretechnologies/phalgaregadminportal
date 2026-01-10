@@ -73,7 +73,7 @@ async function getUsedSlotsFromRegD(confcode: string | null): Promise<number> {
 
   const regids = (eligibleRegs || [])
     .map((r: any) => r?.regid)
-    .filter((id: any) => id && typeof id === 'string');
+    .filter((id: any) => id != null && id !== '');
 
   if (regids.length === 0) return 0;
 

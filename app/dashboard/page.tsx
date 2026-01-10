@@ -35,7 +35,35 @@ async function getRegistrations(status: string = 'all', search: string = '', con
       return [];
     }
 
-    return registrations || [];
+    if (!registrations || registrations.length === 0) {
+      return [];
+    }
+
+    // Attach participant counts
+    const regids = registrations
+      .map((r: any) => r?.regid)
+      .filter((id: any) => id != null && id !== '');
+
+    const countsByRegid = new Map<string, number>();
+
+    if (regids.length > 0) {
+      const { data: regdRows, error: regdError } = await supabase
+        .from('regd')
+        .select('regid')
+        .in('regid', regids);
+
+      if (!regdError && regdRows) {
+        for (const row of regdRows) {
+          const rid = String(row.regid).trim();
+          countsByRegid.set(rid, (countsByRegid.get(rid) || 0) + 1);
+        }
+      }
+    }
+
+    return (registrations || []).map((r: any) => ({
+      ...r,
+      participant_count: r.regid ? (countsByRegid.get(String(r.regid).trim()) || 0) : 0,
+    }));
   } catch (error) {
     console.error('Error fetching registrations:', error);
     return [];

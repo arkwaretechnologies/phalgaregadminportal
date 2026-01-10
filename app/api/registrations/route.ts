@@ -53,65 +53,44 @@ export async function GET(request: NextRequest) {
     // regd rows are linked to regh by regid, not batchnum (batchnum is only generated when approved).
     const regids = (registrations || [])
       .map((r: any) => r?.regid)
-      .filter((id: any) => id != null && id !== ''); // Accept any truthy value, not just strings
+      .filter((id: any) => id != null && id !== '');
 
     const countsByRegid = new Map<string, number>();
 
     // Count participants by regid - fetch all rows to ensure we get accurate counts
     if (regids.length > 0) {
-      // Normalize regids to strings for consistent querying and comparison
-      const normalizedRegids = regids.map((id: any) => String(id).trim());
+      // Use raw IDs for the query as they appear in regh
+      const queryRegids = regids.map((id: any) => String(id).trim());
       
-      const { data: regdRows, error: regdError } = await supabase
-        .from('regd')
-        .select('regid, linenum')
-        .in('regid', normalizedRegids);
+      // Chunk the request to avoid potential URL length limits if there are many IDs
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < queryRegids.length; i += CHUNK_SIZE) {
+        const chunk = queryRegids.slice(i, i + CHUNK_SIZE);
+        const { data: regdRows, error: regdError } = await supabase
+          .from('regd')
+          .select('regid')
+          .in('regid', chunk);
 
-      if (regdError) {
-        console.error('Database error (regd count by regid):', regdError);
-        console.error('Regids being queried:', normalizedRegids);
-      } else {
-        console.log(`[DEBUG] Found ${regdRows?.length || 0} regd rows for ${normalizedRegids.length} registrations`);
-        if (regdRows && regdRows.length > 0) {
-          console.log('[DEBUG] Sample regd row:', regdRows[0]);
+        if (regdError) {
+          console.error('Database error (regd count by regid):', regdError);
+          continue;
         }
+
         for (const row of regdRows || []) {
-          const regid = (row as any)?.regid;
-          if (!regid) {
-            console.warn('[DEBUG] Skipping regd row with missing regid:', row);
-            continue;
-          }
-          // Handle both string and other types, convert to string and trim for consistency
-          const regidStr = String(regid).trim();
+          const rawId = (row as any)?.regid;
+          if (rawId == null) continue;
+          
+          const regidStr = String(rawId).trim();
           countsByRegid.set(regidStr, (countsByRegid.get(regidStr) || 0) + 1);
         }
-        console.log('[DEBUG] Counts by regid:', Object.fromEntries(countsByRegid));
-        console.log('[DEBUG] Registration regids:', normalizedRegids);
       }
     }
 
     const registrationsWithCounts = (registrations || []).map((r: any) => {
       const regidStr = r?.regid ? String(r.regid).trim() : null;
-      // Try both exact match and case-insensitive lookup
-      let count = 0;
-      if (regidStr) {
-        count = countsByRegid.get(regidStr) || 0;
-        // If not found, try case-insensitive match
-        if (count === 0) {
-          for (const [key, value] of countsByRegid.entries()) {
-            if (String(key).trim().toLowerCase() === regidStr.toLowerCase()) {
-              count = value;
-              break;
-            }
-          }
-        }
-        if (count === 0 && regidStr) {
-          console.log(`[DEBUG] Registration ${regidStr} has 0 participants. Available counts:`, Array.from(countsByRegid.keys()));
-        }
-      }
       return {
         ...r,
-        participant_count: count,
+        participant_count: regidStr ? (countsByRegid.get(regidStr) || 0) : 0,
       };
     });
 
