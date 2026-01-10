@@ -5,12 +5,19 @@ import { Registration, RegistrationDetail } from '@/types';
 import ApprovalModal from './ApprovalModal';
 import RegistrationDetailModal from './RegistrationDetailModal';
 import CountdownTimer from './CountdownTimer';
+import LoadingSpinner from './LoadingSpinner';
 
 interface RegistrationListProps {
   initialRegistrations: Registration[];
+  onRegistrationsChanged?: () => void;
+  confcode?: string | null;
 }
 
-export default function RegistrationList({ initialRegistrations }: RegistrationListProps) {
+export default function RegistrationList({
+  initialRegistrations,
+  onRegistrationsChanged,
+  confcode,
+}: RegistrationListProps) {
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -21,8 +28,9 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
   const [registrationDetail, setRegistrationDetail] = useState<RegistrationDetail | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
+  const [viewLoadingIdentifier, setViewLoadingIdentifier] = useState<string | number | null>(null);
 
-  const autoRejectInFlight = useRef<Set<number>>(new Set());
+  const autoRejectInFlight = useRef<Set<string>>(new Set());
   const hasRefreshedAfterAutoReject = useRef(false);
   const AUTO_REJECT_REFRESH_KEY = 'phalga:autoRejectRefreshed';
   const AUTO_REJECT_REMARK =
@@ -32,6 +40,9 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      if (confcode) {
+        params.append('confcode', confcode);
+      }
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
@@ -45,13 +56,14 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
       if (response.ok) {
         setRegistrations(data.registrations || []);
         setCurrentPage(1); // Reset to first page when filters change
+        onRegistrationsChanged?.();
       }
     } catch (error) {
       console.error('Error fetching registrations:', error);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, searchQuery]);
+  }, [confcode, statusFilter, searchQuery, onRegistrationsChanged]);
 
   useEffect(() => {
     fetchRegistrations();
@@ -140,7 +152,16 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
 
   const handleViewDetails = async (registration: Registration) => {
     try {
-      const response = await fetch(`/api/registrations/${registration.regnum}`);
+      // Use batchnum if available, otherwise use regid for pending registrations
+      const identifier = registration.batchnum || registration.regid;
+      setViewLoadingIdentifier(identifier);
+      
+      // Use regid if batchnum is null, otherwise use batchnum
+      const url = registration.batchnum 
+        ? `/api/registrations/${registration.batchnum}`
+        : `/api/registrations/${encodeURIComponent(registration.regid)}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (response.ok) {
@@ -149,6 +170,9 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
       }
     } catch (error) {
       console.error('Error fetching registration details:', error);
+    } finally {
+      const identifier = registration.batchnum || registration.regid;
+      setViewLoadingIdentifier((cur) => (cur === identifier ? null : cur));
     }
   };
 
@@ -164,19 +188,20 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
 
   const handleAutoRejectExpired = useCallback(
     async (registration: Registration) => {
-      const regnum = registration.regnum;
+      const regid = registration.regid;
       const normalizedStatus = registration.status?.toUpperCase() || null;
 
       if (normalizedStatus !== 'PENDING') return;
-      if (autoRejectInFlight.current.has(regnum)) return;
+      if (autoRejectInFlight.current.has(regid)) return;
 
-      autoRejectInFlight.current.add(regnum);
+      autoRejectInFlight.current.add(regid);
       try {
         const response = await fetch('/api/registrations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            regnum,
+            regid: registration.regid,
+            batchnum: registration.batchnum || undefined,
             status: 'REJECTED',
             remarks: AUTO_REJECT_REMARK,
           }),
@@ -191,11 +216,12 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
         // Update local UI immediately
         setRegistrations((prev) =>
           prev.map((r) =>
-            r.regnum === regnum
+              r.regid === regid
               ? { ...r, status: 'REJECTED', remarks: AUTO_REJECT_REMARK }
               : r
           )
         );
+        onRegistrationsChanged?.();
 
         // Refresh exactly once (requested) after sending
         if (
@@ -207,10 +233,10 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
           window.location.reload();
         }
       } finally {
-        autoRejectInFlight.current.delete(regnum);
+        autoRejectInFlight.current.delete(regid);
       }
     },
-    [AUTO_REJECT_REMARK]
+    [AUTO_REJECT_REMARK, onRegistrationsChanged]
   );
 
   return (
@@ -240,7 +266,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                       id="search"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by TRANSID, email, or contact person..."
+                      placeholder="Search by Registration ID, email, or contact person..."
                       className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-700 placeholder-gray-400 font-medium"
                     />
                   </div>
@@ -281,7 +307,10 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
         {/* Loading state */}
         {loading && (
           <div className="text-center py-8">
-            <p className="text-gray-500">Loading registrations...</p>
+            <div className="inline-flex items-center gap-3 text-gray-500">
+              <LoadingSpinner />
+              <span className="text-sm font-medium">Loading registrations…</span>
+            </div>
           </div>
         )}
 
@@ -299,13 +328,13 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
             <div className="md:hidden space-y-4">
               {paginatedRegistrations.map((registration) => (
                 <div
-                  key={registration.regnum}
+                  key={registration.batchnum || registration.regid}
                   className="bg-white rounded-2xl shadow-md border border-gray-100 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">
-                        {registration.transid}
+                        {registration.regid}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {formatDate(registration.regdate)} • {formatTime(registration.regdate)}
@@ -337,6 +366,12 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                         {registration.email || 'N/A'}
                       </span>
                     </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">Participants</span>
+                      <span className="text-gray-900 text-right tabular-nums">
+                        {registration.participant_count ?? 0}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-3">
@@ -351,10 +386,18 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                   <div className="mt-4 flex flex-col gap-2">
                     <button
                       onClick={() => handleViewDetails(registration)}
-                      className="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                      disabled={viewLoadingIdentifier === (registration.batchnum || registration.regid)}
+                      className="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="View Details"
                     >
-                      View details
+                      {viewLoadingIdentifier === (registration.batchnum || registration.regid) ? (
+                        <span className="inline-flex items-center gap-2">
+                          <LoadingSpinner />
+                          <span>Loading…</span>
+                        </span>
+                      ) : (
+                        'View details'
+                      )}
                     </button>
                     {registration.status !== 'APPROVED' &&
                       registration.status !== 'REJECTED' && (
@@ -410,7 +453,7 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        TRANSID
+                        Registration ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Registration Date
@@ -428,6 +471,9 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                         Email
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Participants
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -440,10 +486,10 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedRegistrations.map((registration) => (
-                    <tr key={registration.regnum} className="hover:bg-gray-50">
+                    <tr key={registration.batchnum || registration.regid} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {registration.transid}
+                          {registration.regid}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -475,20 +521,35 @@ export default function RegistrationList({ initialRegistrations }: RegistrationL
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 tabular-nums">
+                          {registration.participant_count ?? 0}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(registration.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleViewDetails(registration)}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 hover:border-indigo-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                            disabled={viewLoadingIdentifier === (registration.batchnum || registration.regid)}
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 hover:border-indigo-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="View Details"
                           >
-                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
+                            {viewLoadingIdentifier === (registration.batchnum || registration.regid) ? (
+                              <span className="inline-flex items-center gap-2">
+                                <LoadingSpinner />
+                                <span>Loading…</span>
+                              </span>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </>
+                            )}
                           </button>
                           {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
                             <button

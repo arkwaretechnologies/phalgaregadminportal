@@ -72,7 +72,11 @@ export default function RegistrationDetailModal({
     
     // Fetch updated registration details
     try {
-      const response = await fetch(`/api/registrations/${registration.regnum}`);
+      const identifier = registration.batchnum || registration.regid;
+      const url = registration.batchnum 
+        ? `/api/registrations/${registration.batchnum}`
+        : `/api/registrations/${encodeURIComponent(registration.regid)}`;
+      const response = await fetch(url);
       const data = await response.json();
       
       if (response.ok && data.registration) {
@@ -97,7 +101,7 @@ export default function RegistrationDetailModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          regnum: currentRegistration.regnum,
+          batchnum: currentRegistration.batchnum,
           status: 'REJECTED',
           remarks: AUTO_REJECT_REMARK,
         }),
@@ -129,7 +133,7 @@ export default function RegistrationDetailModal({
     } finally {
       autoRejectInFlight.current = false;
     }
-  }, [AUTO_REJECT_REMARK, currentRegistration.regnum, currentRegistration.status, onUpdate]);
+  }, [AUTO_REJECT_REMARK, currentRegistration.batchnum, currentRegistration.status, onUpdate]);
 
   if (!isOpen) return null;
 
@@ -142,7 +146,7 @@ export default function RegistrationDetailModal({
             <div className="min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Registration Details</h2>
               <p className="text-sm text-gray-600 mt-1 break-words">
-                Transaction ID: {currentRegistration.transid}
+                Registration ID: {currentRegistration.regid}
               </p>
             </div>
             <button
@@ -179,7 +183,7 @@ export default function RegistrationDetailModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Transaction ID</p>
-                  <p className="text-base font-medium text-gray-900">{currentRegistration.transid}</p>
+                  <p className="text-base font-medium text-gray-900">{currentRegistration.regid}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Registration Date</p>
@@ -215,8 +219,8 @@ export default function RegistrationDetailModal({
 
               {/* Payment Proof Section */}
               <PaymentProofViewer 
-                regnum={currentRegistration.regnum} 
-                transid={currentRegistration.transid}
+                batchnum={currentRegistration.batchnum} 
+                regid={currentRegistration.regid}
               />
 
               {currentRegistration.remarks && (

@@ -15,21 +15,33 @@ export async function GET(
     // Check authentication and role
     await requireAuth(['admin', 'reviewer']);
 
-    const regnum = parseInt(params.regnum);
+    // Try to parse as number (batchnum), otherwise treat as regid (string)
+    const batchnum = parseInt(params.regnum);
+    const isNumeric = !isNaN(batchnum) && /^\d+$/.test(params.regnum);
 
-    if (isNaN(regnum)) {
-      return NextResponse.json(
-        { error: 'Invalid registration number' },
-        { status: 400 }
-      );
+    let registration;
+    let regError;
+
+    if (isNumeric) {
+      // Use batchnum for lookup
+      const { data, error } = await supabase
+        .from('regh')
+        .select('regid, payment_proof_url')
+        .eq('batchnum', batchnum)
+        .maybeSingle();
+      registration = data;
+      regError = error;
+    } else {
+      // Use regid for lookup
+      const regid = decodeURIComponent(params.regnum);
+      const { data, error } = await supabase
+        .from('regh')
+        .select('regid, payment_proof_url')
+        .eq('regid', regid)
+        .maybeSingle();
+      registration = data;
+      regError = error;
     }
-
-    // Fetch registration to get transaction ID and payment proof URL
-    const { data: registration, error: regError } = await supabase
-      .from('regh')
-      .select('transid, payment_proof_url')
-      .eq('regnum', regnum)
-      .single();
 
     if (regError || !registration) {
       return NextResponse.json(
@@ -39,7 +51,7 @@ export async function GET(
     }
 
     const bucketName = 'payment-proofs';
-    const transid = registration.transid;
+    const regid = registration.regid;
     let publicUrl: string | null = null;
     let fileName: string | null = null;
 
@@ -81,8 +93,8 @@ export async function GET(
     }
 
     // If payment_proof_url is NULL or file not found, search bucket using naming pattern
-    // Pattern: payment-proof-{TRANSID}-{timestamp}.{ext}
-    // List files in bucket that start with payment-proof-{TRANSID}
+    // Pattern: payment-proof-{REGID}-{timestamp}.{ext}
+    // List files in bucket that start with payment-proof-{REGID}
     try {
       const { data: files, error: listError } = await supabase.storage
         .from(bucketName)
@@ -93,10 +105,10 @@ export async function GET(
         });
 
       if (!listError && files) {
-        // Find files that match the pattern: payment-proof-{TRANSID}
+        // Find files that match the pattern: payment-proof-{REGID}
         const matchingFiles = files.filter(file => 
-          file.name.toLowerCase().startsWith(`payment-proof-${transid.toLowerCase()}`) ||
-          file.name.toLowerCase().startsWith(`payment-proof-${transid.toLowerCase()}-`)
+          file.name.toLowerCase().startsWith(`payment-proof-${regid.toLowerCase()}`) ||
+          file.name.toLowerCase().startsWith(`payment-proof-${regid.toLowerCase()}-`)
         );
 
         if (matchingFiles.length > 0) {
@@ -125,7 +137,7 @@ export async function GET(
 
     if (!publicUrl) {
       return NextResponse.json(
-        { error: 'Payment proof not found', transid: registration.transid },
+        { error: 'Payment proof not found', regid: registration.regid },
         { status: 404 }
       );
     }
@@ -147,7 +159,7 @@ export async function GET(
         // Extract filename from URL
         const urlParts = publicUrl.split('/');
         const urlFileName = urlParts[urlParts.length - 1].split('?')[0];
-        const downloadFileName = fileName || urlFileName || `payment-proof-${registration.transid}.pdf`;
+        const downloadFileName = fileName || urlFileName || `payment-proof-${registration.regid}.pdf`;
         
         return new NextResponse(blob, {
           headers: {
@@ -169,7 +181,7 @@ export async function GET(
     return NextResponse.json({ 
       url: publicUrl,
       fileName: fileName || 'payment-proof',
-      transid: registration.transid 
+      regid: registration.regid 
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {

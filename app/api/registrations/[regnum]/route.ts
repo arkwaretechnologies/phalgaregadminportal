@@ -14,21 +14,33 @@ export async function GET(
     // Check authentication and role
     await requireAuth(['admin', 'reviewer']);
 
-    const regnum = parseInt(params.regnum);
+    // Try to parse as number (batchnum), otherwise treat as regid (string)
+    const batchnum = parseInt(params.regnum);
+    const isNumeric = !isNaN(batchnum) && /^\d+$/.test(params.regnum);
 
-    if (isNaN(regnum)) {
-      return NextResponse.json(
-        { error: 'Invalid registration number' },
-        { status: 400 }
-      );
+    let registration;
+    let regError;
+
+    if (isNumeric) {
+      // Use batchnum for lookup
+      const { data, error } = await supabase
+        .from('regh')
+        .select('*')
+        .eq('batchnum', batchnum)
+        .maybeSingle();
+      registration = data;
+      regError = error;
+    } else {
+      // Use regid for lookup
+      const regid = decodeURIComponent(params.regnum);
+      const { data, error } = await supabase
+        .from('regh')
+        .select('*')
+        .eq('regid', regid)
+        .maybeSingle();
+      registration = data;
+      regError = error;
     }
-
-    // Fetch registration header
-    const { data: registration, error: regError } = await supabase
-      .from('regh')
-      .select('*')
-      .eq('regnum', regnum)
-      .single();
 
     if (regError || !registration) {
       return NextResponse.json(
@@ -38,11 +50,14 @@ export async function GET(
     }
 
     // Fetch registration details (from regd table if exists)
-    const { data: regd, error: regdError } = await supabase
-      .from('regd')
-      .select('*')
-      .eq('regnum', regnum)
-      .order('linenum', { ascending: true });
+    // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
+    const { data: regd, error: regdError } = registration.regid
+      ? await supabase
+          .from('regd')
+          .select('*')
+          .eq('regid', registration.regid)
+          .order('linenum', { ascending: true })
+      : { data: [], error: null };
 
     const registrationDetail: RegistrationDetail = {
       ...registration,

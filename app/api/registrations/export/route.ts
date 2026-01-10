@@ -41,12 +41,22 @@ export async function GET(request: NextRequest) {
     // Check authentication - admin only
     await requireAuth(['admin']);
 
-    // Fetch all approved registrations
-    const { data: approvedRegistrations, error: regError } = await supabase
+    // Get confcode from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const confcode = searchParams.get('confcode');
+
+    // Fetch approved registrations, optionally filtered by conference
+    let query = supabase
       .from('regh')
       .select('*')
       .eq('status', 'APPROVED')
       .order('regdate', { ascending: false });
+
+    if (confcode) {
+      query = query.eq('confcode', confcode);
+    }
+
+    const { data: approvedRegistrations, error: regError } = await query;
 
     if (regError) {
       console.error('Error fetching approved registrations:', regError);
@@ -79,8 +89,8 @@ export async function GET(request: NextRequest) {
     if (approvedRegistrations && approvedRegistrations.length > 0) {
       for (const registration of approvedRegistrations) {
         csvRows.push([
-          escapeCSV(registration.regnum),
-          escapeCSV(registration.transid || ''),
+          escapeCSV(registration.batchnum),
+          escapeCSV(registration.regid || ''),
           escapeCSV(registration.confcode || ''),
           escapeCSV(registration.province || ''),
           escapeCSV(registration.lgu || ''),

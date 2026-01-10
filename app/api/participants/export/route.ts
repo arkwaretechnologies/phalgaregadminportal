@@ -40,12 +40,22 @@ export async function GET(request: NextRequest) {
     // Check authentication - admin only
     await requireAuth(['admin']);
 
-    // Fetch all approved registrations
-    const { data: approvedRegistrations, error: regError } = await supabase
+    // Get confcode from query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const confcode = searchParams.get('confcode');
+
+    // Fetch approved registrations, optionally filtered by conference
+    let query = supabase
       .from('regh')
       .select('*')
       .eq('status', 'APPROVED')
       .order('regdate', { ascending: false });
+
+    if (confcode) {
+      query = query.eq('confcode', confcode);
+    }
+
+    const { data: approvedRegistrations, error: regError } = await query;
 
     if (regError) {
       console.error('Error fetching approved registrations:', regError);
@@ -70,7 +80,7 @@ export async function GET(request: NextRequest) {
         // Fallback: use known columns from type definition
         regdColumns = [
           'confcode',
-          'regnum',
+          'batchnum',
           'linenum',
           'lastname',
           'firstname',
@@ -102,16 +112,31 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch all regd rows where regnum is in approved registrations
-    // This ensures we get all regd columns and filter by approved status
-    const regnums = approvedRegistrations.map(reg => reg.regnum);
+    // Fetch all regd rows where regid is in approved registrations
+    // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
+    const regids = approvedRegistrations
+      .map(reg => reg.regid)
+      .filter((id): id is string => id !== null && id !== undefined);
     
-    const { data: participants, error: participantError } = await supabase
-      .from('regd')
-      .select('*')
-      .in('regnum', regnums)
-      .order('regnum', { ascending: false })
-      .order('linenum', { ascending: true });
+    let participants: any[] = [];
+    let participantError = null;
+
+    if (regids.length > 0) {
+      let participantQuery = supabase
+        .from('regd')
+        .select('*')
+        .in('regid', regids)
+        .order('linenum', { ascending: true });
+
+      // Also filter by confcode if provided
+      if (confcode) {
+        participantQuery = participantQuery.eq('confcode', confcode);
+      }
+
+      const { data, error } = await participantQuery;
+      participants = data || [];
+      participantError = error;
+    }
 
     if (participantError) {
       console.error('Error fetching participants:', participantError);
@@ -144,7 +169,7 @@ export async function GET(request: NextRequest) {
       // Fallback: use known columns from type definition
       regdColumns = [
         'confcode',
-        'regnum',
+        'batchnum',
         'linenum',
         'lastname',
         'firstname',

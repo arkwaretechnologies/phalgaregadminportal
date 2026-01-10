@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
 interface PaymentProofViewerProps {
-  regnum: number;
-  transid: string;
+  batchnum: number | null; // Batch number from database (route folder still uses [regnum] for URL param)
+  regid: string;
 }
 
-export default function PaymentProofViewer({ regnum, transid }: PaymentProofViewerProps) {
+export default function PaymentProofViewer({ batchnum, regid }: PaymentProofViewerProps) {
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,11 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/registrations/${regnum}/payment-proof`);
+      const identifier = batchnum || regid;
+      const url = batchnum 
+        ? `/api/registrations/${batchnum}/payment-proof`
+        : `/api/registrations/${encodeURIComponent(regid)}/payment-proof`;
+      const response = await fetch(url);
       const data = await response.json();
 
       if (response.ok && data.url) {
@@ -31,7 +35,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
     } finally {
       setLoading(false);
     }
-  }, [regnum]);
+  }, [batchnum, regid]);
 
   useEffect(() => {
     fetchPaymentProof();
@@ -96,15 +100,19 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
             onClick={async () => {
               try {
                 // Use our API endpoint to download the file to avoid CORS issues
-                const response = await fetch(`/api/registrations/${regnum}/payment-proof?download=true`);
+                const identifier = batchnum || regid;
+                const url = batchnum 
+                  ? `/api/registrations/${batchnum}/payment-proof?download=true`
+                  : `/api/registrations/${encodeURIComponent(regid)}/payment-proof?download=true`;
+                const response = await fetch(url);
                 const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
+                const blobUrl = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
-                link.href = url;
+                link.href = blobUrl;
                 
                 // Get filename from response headers or use default
                 const contentDisposition = response.headers.get('content-disposition');
-                let fileName = `payment-proof-${transid}.pdf`;
+                let fileName = `payment-proof-${regid}.pdf`;
                 if (contentDisposition) {
                   const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                   if (fileNameMatch) {
@@ -116,7 +124,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
+                window.URL.revokeObjectURL(blobUrl);
               } catch (error) {
                 console.error('Error downloading file:', error);
                 // Fallback: open in new tab
@@ -146,7 +154,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
-                Payment Proof - Transaction ID: {transid}
+                Payment Proof - Registration ID: {regid}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -197,7 +205,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
                         const urlParts = proofUrl.split('/');
                         const fileName = urlParts[urlParts.length - 1].split('?')[0];
                         const extension = fileName.match(/\.\w+$/)?.[0] || '.pdf';
-                        link.download = `payment-proof-${transid}${extension}`;
+                        link.download = `payment-proof-${regid}${extension}`;
                         
                         document.body.appendChild(link);
                         link.click();
@@ -210,7 +218,7 @@ export default function PaymentProofViewer({ regnum, transid }: PaymentProofView
                         link.href = proofUrl;
                         const urlParts = proofUrl.split('/');
                         const fileName = urlParts[urlParts.length - 1].split('?')[0];
-                        link.download = fileName || `payment-proof-${transid}.pdf`;
+                        link.download = fileName || `payment-proof-${regid}.pdf`;
                         link.target = '_blank';
                         document.body.appendChild(link);
                         link.click();

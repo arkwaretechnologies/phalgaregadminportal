@@ -12,6 +12,8 @@ interface StatusUpdateEmailData {
   registration: Registration;
   status: 'APPROVED' | 'REJECTED';
   remarks?: string | null;
+  conferenceName?: string | null;
+  conferenceDomain?: string | null;
 }
 
 function formatDate(date: string | null): string {
@@ -48,11 +50,23 @@ function escapeHtml(text: string | null): string {
 }
 
 function getEmailTemplate(data: StatusUpdateEmailData): string {
-  const { registration, status, remarks } = data;
+  const { registration, status, remarks, conferenceName, conferenceDomain } = data;
   const statusColor = getStatusColor(status);
   const statusBadgeStyle = getStatusBadgeColor(status);
   const greeting = registration.contactperson || 'Dear Participant';
   const escapedRemarks = escapeHtml(remarks || '');
+  const conferenceDisplayName = conferenceName || registration.confcode || 'Conference';
+  
+  // Build registration portal URL based on conference domain
+  let registrationPortalUrl = 'https://registration.phalga.org'; // Default fallback
+  if (conferenceDomain) {
+    // If domain starts with http:// or https://, use it as is, otherwise prepend https://
+    if (conferenceDomain.startsWith('http://') || conferenceDomain.startsWith('https://')) {
+      registrationPortalUrl = conferenceDomain;
+    } else {
+      registrationPortalUrl = `https://${conferenceDomain}`;
+    }
+  }
 
   return `
 <!DOCTYPE html>
@@ -60,7 +74,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registration ${status}</title>
+  <title>Registration ${status === 'APPROVED' ? 'Confirmed' : status}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
@@ -70,8 +84,8 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">17th Mindanao Geographic Conference</h1>
-              <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">Registration ${status}</p>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">${escapeHtml(conferenceDisplayName)}</h1>
+              <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">Registration ${status === 'APPROVED' ? 'Confirmed' : status}</p>
             </td>
           </tr>
           
@@ -83,13 +97,17 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
               ${
                 status === 'APPROVED'
                   ? `<p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      Congratulations! Your registration for the 17th Mindanao Geographic Conference has been <strong style="color: ${statusColor};">APPROVED</strong>.
+                      Congratulations! Your registration for ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">CONFIRMED</strong>.
                     </p>
+                    ${registration.batchnum ? `<div style="margin: 0 0 30px 0; padding: 20px; background-color: #f0fdf4; border-left: 4px solid ${statusColor}; border-radius: 4px;">
+                      <p style="margin: 0 0 8px 0; font-size: 12px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px;">Batch Number</p>
+                      <p style="margin: 0; font-size: 28px; font-weight: bold; color: #047857; letter-spacing: 1px;">Batch ${registration.batchnum}</p>
+                    </div>` : ''}
                     <p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
                       We are pleased to confirm your participation. Please ensure you have submitted all required documents and payment proof as specified in the registration requirements.
                     </p>`
                   : `<p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      We regret to inform you that your registration for the 17th Mindanao Geographic Conference has been <strong style="color: ${statusColor};">REJECTED</strong>.
+                      We regret to inform you that your registration for ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">REJECTED</strong>.
                     </p>
                     ${remarks ? `<div style="margin: 0 0 30px 0; padding: 20px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
                       <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #92400e;">Reason for Rejection:</p>
@@ -100,10 +118,10 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                     </p>`
               }
               
-              <!-- Transaction ID Box -->
+              <!-- Registration ID Box -->
               <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb; border-left: 4px solid ${statusColor}; border-radius: 4px;">
-                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Transaction ID</p>
-                <p style="margin: 0; font-size: 24px; font-weight: bold; color: #111827; letter-spacing: 1px;">${registration.transid}</p>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Registration ID</p>
+                <p style="margin: 0; font-size: 24px; font-weight: bold; color: #111827; letter-spacing: 1px;">${registration.regid}</p>
               </div>
               
               <!-- Registration Details -->
@@ -129,7 +147,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280;">Status</td>
                     <td style="padding: 10px 0;">
                       <span style="display: inline-block; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 20px; ${statusBadgeStyle}">
-                        ${status}
+                        ${status === 'APPROVED' ? 'CONFIRMED' : status}
                       </span>
                     </td>
                   </tr>
@@ -137,12 +155,12 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
               </div>
               
               <p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                Please keep your Transaction ID safe. You can use it to view your registration details at any time.
+                Please keep your Registration ID safe. You can use it to view your registration details at any time.
               </p>
               
               <!-- Action Button -->
               <div style="margin: 30px 0; text-align: center;">
-                <a href="${registrationPortalUrl}/view/${registration.transid}" 
+                <a href="${registrationPortalUrl}/view/${registration.regid}" 
                    style="display: inline-block; padding: 14px 28px; background-color: ${statusColor}; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
                   View Registration Details
                 </a>
@@ -161,7 +179,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                 This is an automated message. Please do not reply to this email.
               </p>
               <p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280;">
-                © ${new Date().getFullYear()} 17th Mindanao Geographic Conference. All rights reserved.
+                © ${new Date().getFullYear()} ${escapeHtml(conferenceDisplayName)}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -189,22 +207,22 @@ export async function sendStatusUpdateEmail(data: StatusUpdateEmailData): Promis
   const { registration } = data;
 
   console.log('[EMAIL] Registration data:', {
-    regnum: registration.regnum,
-    transid: registration.transid,
+    batchnum: registration.batchnum,
+    regid: registration.regid,
     email: registration.email,
     status: data.status,
     hasRemarks: !!data.remarks,
   });
 
   if (!registration.email) {
-    console.warn(`[EMAIL] No email address found for registration ${registration.regnum}. Email not sent.`);
+    console.warn(`[EMAIL] No email address found for registration ${registration.batchnum}. Email not sent.`);
     return false;
   }
 
   try {
     const subject = data.status === 'APPROVED' 
-      ? `Registration Approved - ${registration.transid}`
-      : `Registration Rejected - ${registration.transid}`;
+      ? `Registration Confirmed - ${registration.regid}`
+      : `Registration Rejected - ${registration.regid}`;
 
     console.log('[EMAIL] Email subject:', subject);
     console.log('[EMAIL] Sending to:', registration.email);
@@ -226,7 +244,7 @@ export async function sendStatusUpdateEmail(data: StatusUpdateEmailData): Promis
       return false;
     }
 
-    console.log(`[EMAIL] Status update email sent successfully to ${registration.email} for registration ${registration.regnum}`);
+    console.log(`[EMAIL] Status update email sent successfully to ${registration.email} for registration ${registration.batchnum}`);
     console.log('[EMAIL] Email ID:', emailData?.id);
     return true;
   } catch (err) {

@@ -42,7 +42,9 @@ export async function middleware(request: NextRequest) {
 
       // Check role-based access for admin routes
       if (
-        (pathname.startsWith('/dashboard/users') || pathname.startsWith('/dashboard/download-participants')) &&
+        (pathname.startsWith('/dashboard/users') || 
+         pathname.startsWith('/dashboard/download-participants') ||
+         pathname.startsWith('/dashboard/conferences')) &&
         payload.role !== 'admin'
       ) {
         const url = request.nextUrl.clone();
@@ -76,7 +78,8 @@ export async function middleware(request: NextRequest) {
       if (
         (pathname.startsWith('/api/users') || 
          pathname.startsWith('/api/participants/export') || 
-         pathname.startsWith('/api/registrations/export')) &&
+         pathname.startsWith('/api/registrations/export') ||
+         pathname.startsWith('/api/conferences')) &&
         payload.role !== 'admin'
       ) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Registration } from '@/types';
+import LoadingSpinner from './LoadingSpinner';
 
 interface ApprovalModalProps {
   registration: Registration;
@@ -41,7 +42,8 @@ export default function ApprovalModal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          regnum: registration.regnum,
+          regid: registration.regid,
+          batchnum: registration.batchnum || undefined, // Send if exists, otherwise undefined
           status: action === 'approve' ? 'APPROVED' : 'REJECTED',
           remarks: remarks.trim() || null,
         }),
@@ -50,9 +52,17 @@ export default function ApprovalModal({
       const data = await response.json();
 
       if (!response.ok) {
-        const errorMessage = data.details 
-          ? `${data.error}: ${data.details}` 
-          : data.error || 'Failed to update registration';
+        let errorMessage = data.error || 'Failed to update registration';
+        if (data.details) {
+          errorMessage += `: ${data.details}`;
+        }
+        if (data.code) {
+          errorMessage += ` (Code: ${data.code})`;
+        }
+        if (data.hint) {
+          errorMessage += ` - ${data.hint}`;
+        }
+        console.error('Registration update error:', { data, status: response.status });
         setError(errorMessage);
         setLoading(false);
         return;
@@ -76,7 +86,7 @@ export default function ApprovalModal({
         </h2>
 
         <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-2">Transaction ID: {registration.transid}</p>
+          <p className="text-sm text-gray-600 mb-2">Registration ID: {registration.regid}</p>
           <p className="text-sm text-gray-600">Contact: {registration.contactperson || 'N/A'}</p>
         </div>
 
@@ -157,13 +167,20 @@ export default function ApprovalModal({
             <button
               type="submit"
               disabled={loading}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 ${
                 action === 'approve'
                   ? 'bg-green-600 hover:bg-green-700'
                   : 'bg-red-600 hover:bg-red-700'
               }`}
             >
-              {loading ? 'Processing...' : action === 'approve' ? 'Approve' : 'Reject'}
+              {loading ? (
+                <>
+                  <LoadingSpinner />
+                  <span>Processing…</span>
+                </>
+              ) : (
+                <span>{action === 'approve' ? 'Approve' : 'Reject'}</span>
+              )}
             </button>
           </div>
         </form>

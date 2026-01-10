@@ -60,7 +60,7 @@ export default function RegistrationDetailClient({
           <h1 className="text-2xl font-bold text-gray-900">
             Registration Details
           </h1>
-          <p className="text-sm text-gray-600 mt-1">Transaction ID: {registration.transid}</p>
+          <p className="text-sm text-gray-600 mt-1">Registration ID: {registration.regid}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -75,8 +75,8 @@ export default function RegistrationDetailClient({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <p className="text-sm text-gray-500 mb-1">Transaction ID</p>
-              <p className="text-base font-medium">{registration.transid}</p>
+              <p className="text-sm text-gray-500 mb-1">Registration ID</p>
+              <p className="text-base font-medium">{registration.regid}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Registration Date</p>

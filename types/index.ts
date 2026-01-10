@@ -8,8 +8,8 @@ export interface User {
 }
 
 export interface Registration {
-  regnum: number;
-  transid: string;
+  batchnum: number | null; // Generated when approved, null otherwise
+  regid: string;
   confcode: string | null;
   province: string | null;
   lgu: string | null;
@@ -20,6 +20,7 @@ export interface Registration {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   remarks: string | null;
   payment_proof_url?: string | null; // Payment proof file URL or path in storage
+  participant_count?: number; // Derived: number of regD rows for this batchnum
 }
 
 export interface RegistrationDetail extends Registration {
@@ -28,7 +29,7 @@ export interface RegistrationDetail extends Registration {
 
 export interface RegistrationDetailItem {
   confcode: string | null;
-  regnum: number;
+  batchnum: number | null; // Generated when approved, null otherwise
   linenum: number;
   lastname: string | null;
   firstname: string | null;
@@ -42,4 +43,14 @@ export interface RegistrationDetailItem {
   prcnum: string | null;
   expirydate: string | null;
   email: string | null;
+}
+
+export interface Conference {
+  confcode: string;
+  name: string | null;
+  date_from: string | null; // ISO date string
+  date_to: string | null; // ISO date string
+  venue: string | null;
+  reg_limit: number | null;
+  domain: string | null;
 }

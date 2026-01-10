@@ -7,13 +7,13 @@ import RegistrationDetailClient from './RegistrationDetailClient';
 // Force dynamic rendering - this page requires authentication and database access
 export const dynamic = 'force-dynamic';
 
-async function getRegistration(regnum: number): Promise<RegistrationDetail | null> {
+async function getRegistration(batchnum: number): Promise<RegistrationDetail | null> {
   try {
     // Fetch registration header
     const { data: registration, error: regError } = await supabase
       .from('regh')
       .select('*')
-      .eq('regnum', regnum)
+      .eq('batchnum', batchnum)
       .single();
 
     if (regError || !registration) {
@@ -21,11 +21,14 @@ async function getRegistration(regnum: number): Promise<RegistrationDetail | nul
     }
 
     // Fetch registration details (from regd table if exists)
-    const { data: regd } = await supabase
-      .from('regd')
-      .select('*')
-      .eq('regnum', regnum)
-      .order('linenum', { ascending: true });
+    // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
+    const { data: regd } = registration.regid
+      ? await supabase
+          .from('regd')
+          .select('*')
+          .eq('regid', registration.regid)
+          .order('linenum', { ascending: true })
+      : [];
 
     return {
       ...registration,
@@ -48,13 +51,13 @@ export default async function RegistrationDetailPage({
     redirect('/login');
   }
 
-  const regnum = parseInt(params.regnum);
+  const batchnum = parseInt(params.regnum);
 
-  if (isNaN(regnum)) {
+  if (isNaN(batchnum)) {
     notFound();
   }
 
-  const registration = await getRegistration(regnum);
+  const registration = await getRegistration(batchnum);
 
   if (!registration) {
     notFound();

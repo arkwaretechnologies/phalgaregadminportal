@@ -1,12 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Conference } from '@/types';
 
 export default function DownloadParticipantsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conferences, setConferences] = useState<Conference[]>([]);
+  const [selectedConfcode, setSelectedConfcode] = useState<string | null>(null);
+  const [loadingConferences, setLoadingConferences] = useState(true);
+
+  // Fetch conferences on mount
+  useEffect(() => {
+    const fetchConferences = async () => {
+      setLoadingConferences(true);
+      try {
+        const response = await fetch('/api/conferences');
+        const data = await response.json();
+
+        if (response.ok) {
+          const fetchedConferences = data.conferences || [];
+          setConferences(fetchedConferences);
+
+          // Default to the first conference if available
+          if (fetchedConferences.length > 0 && !selectedConfcode) {
+            setSelectedConfcode(fetchedConferences[0].confcode);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching conferences:', error);
+      } finally {
+        setLoadingConferences(false);
+      }
+    };
+
+    fetchConferences();
+  }, []);
 
   const downloadFile = async (url: string, filename: string): Promise<void> => {
     const response = await fetch(url);
@@ -40,16 +71,22 @@ export default function DownloadParticipantsPage() {
   };
 
   const handleDownload = async () => {
+    if (!selectedConfcode) {
+      setError('Please select a conference');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const dateStr = new Date().toISOString().split('T')[0];
+      const confcodeParam = `?confcode=${encodeURIComponent(selectedConfcode)}`;
 
       // Download participants file first (regD)
       await downloadFile(
-        '/api/participants/export',
-        `approved_participants_regD_${dateStr}.csv`
+        `/api/participants/export${confcodeParam}`,
+        `approved_participants_regD_${selectedConfcode}_${dateStr}.csv`
       );
 
       // Small delay to allow browser to handle first download
@@ -57,8 +94,8 @@ export default function DownloadParticipantsPage() {
 
       // Download registrations file (regH)
       await downloadFile(
-        '/api/registrations/export',
-        `approved_participants_regH_${dateStr}.csv`
+        `/api/registrations/export${confcodeParam}`,
+        `approved_participants_regH_${selectedConfcode}_${dateStr}.csv`
       );
     } catch (err: any) {
       console.error('Download error:', err);
@@ -87,6 +124,32 @@ export default function DownloadParticipantsPage() {
         </div>
       </div>
 
+      {/* Conference Filter */}
+      <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <label htmlFor="conference-filter" className="block text-sm font-medium text-gray-700 mb-2">
+          Conference
+        </label>
+        <select
+          id="conference-filter"
+          value={selectedConfcode || ''}
+          onChange={(e) => setSelectedConfcode(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+          disabled={loadingConferences || loading}
+        >
+          {loadingConferences ? (
+            <option value="">Loading conferences...</option>
+          ) : conferences.length === 0 ? (
+            <option value="">No conferences available</option>
+          ) : (
+            conferences.map((conf) => (
+              <option key={conf.confcode} value={conf.confcode}>
+                {conf.confcode} - {conf.name || 'Unnamed Conference'}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
       {/* Main Content Card */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
         <div className="text-center">
@@ -101,8 +164,8 @@ export default function DownloadParticipantsPage() {
           </h2>
           
           <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Download two CSV files containing all approved registration data. The first file includes participant details, 
-            and the second file includes registration header information. Both files will be downloaded automatically.
+            Select a conference above, then download two CSV files containing all approved registration data for that conference. 
+            The first file includes participant details, and the second file includes registration header information. Both files will be downloaded automatically.
           </p>
 
           {error && (
@@ -118,7 +181,7 @@ export default function DownloadParticipantsPage() {
 
           <button
             onClick={handleDownload}
-            disabled={loading}
+            disabled={loading || !selectedConfcode || loadingConferences}
             className={`inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
               loading ? 'animate-pulse' : ''
             }`}

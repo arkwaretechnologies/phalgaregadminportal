@@ -1,128 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
-type ConfigMap = Record<string, string | null>;
-
-function toDateTimeLocal(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
-}
-
 export default function ConfigurationClient() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-
-  const [municipalityLimit, setMunicipalityLimit] = useState<string>('');
-  const [registrationLimit, setRegistrationLimit] = useState<string>('');
-  const [deadline, setDeadline] = useState<string>(''); // datetime-local
-
-  const originalRef = useRef<{
-    municipalityLimit: string;
-    registrationLimit: string;
-    deadline: string;
-  } | null>(null);
-
-  const payload = useMemo(
-    () => ({
-      PROVINCE_LGU_LIMIT: municipalityLimit,
-      REGISTRATION_LIMIT: registrationLimit,
-      REGISTRATION_DEADLINE: deadline ? new Date(deadline).toISOString() : '',
-    }),
-    [deadline, municipalityLimit, registrationLimit]
-  );
-
-  const load = async (opts?: { preserveSuccess?: boolean }) => {
-    setLoading(true);
-    setError(null);
-    if (!opts?.preserveSuccess) setSuccess(null);
-    try {
-      const res = await fetch('/api/config', { cache: 'no-store' });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || 'Failed to load configuration');
-      }
-      const data = (await res.json()) as { config: ConfigMap };
-      const cfg = data?.config || {};
-
-      const nextMunicipality = cfg.PROVINCE_LGU_LIMIT ?? '';
-      const nextRegistration = cfg.REGISTRATION_LIMIT ?? '';
-      const nextDeadline = toDateTimeLocal(cfg.REGISTRATION_DEADLINE ?? null);
-
-      setMunicipalityLimit(nextMunicipality);
-      setRegistrationLimit(nextRegistration);
-      setDeadline(nextDeadline);
-
-      originalRef.current = {
-        municipalityLimit: nextMunicipality,
-        registrationLimit: nextRegistration,
-        deadline: nextDeadline,
-      };
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load configuration');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch('/api/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to save configuration');
-      }
-      setSuccess('Saved successfully.');
-      setIsEditing(false);
-      await load({ preserveSuccess: true });
-
-      // Auto-hide success message after a short delay
-      window.setTimeout(() => setSuccess(null), 3000);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to save configuration');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const startEditing = () => {
-    setError(null);
-    setSuccess(null);
-    setIsEditing(true);
-  };
-
-  const cancelEditing = () => {
-    const orig = originalRef.current;
-    if (orig) {
-      setMunicipalityLimit(orig.municipalityLimit);
-      setRegistrationLimit(orig.registrationLimit);
-      setDeadline(orig.deadline);
-    }
-    setError(null);
-    setSuccess(null);
-    setIsEditing(false);
-  };
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -147,122 +25,28 @@ export default function ConfigurationClient() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800 font-medium">{error}</p>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 sm:p-16">
+        <div className="text-center">
+          <div className="mb-6">
+            <svg
+              className="mx-auto h-16 w-16 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
           </div>
-        )}
-
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800 font-medium">{success}</p>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="py-10 text-center text-gray-500">Loading configuration…</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Municipality Participant Limit
-                </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
-                  value={municipalityLimit}
-                  onChange={(e) => setMunicipalityLimit(e.target.value)}
-                  placeholder="e.g. 30"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  disabled={!isEditing || saving}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Stored as <code className="font-mono">PROVINCE_LGU_LIMIT</code>
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Registration Participants Limit
-                </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
-                  value={registrationLimit}
-                  onChange={(e) => setRegistrationLimit(e.target.value)}
-                  placeholder="e.g. 100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  disabled={!isEditing || saving}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Stored as <code className="font-mono">REGISTRATION_LIMIT</code>
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Registration Deadline / Expiry
-                </label>
-                <input
-                  type="datetime-local"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  disabled={!isEditing || saving}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Stored as ISO string in <code className="font-mono">REGISTRATION_DEADLINE</code>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => load()}
-                disabled={saving || loading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
-              >
-                Reload
-              </button>
-              {!isEditing ? (
-                <button
-                  type="button"
-                  onClick={startEditing}
-                  disabled={saving || loading}
-                  className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
-                >
-                  Edit
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={cancelEditing}
-                    disabled={saving}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={save}
-                    disabled={saving}
-                    className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving…' : 'Save Changes'}
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
+          <h2 className="text-2xl font-semibold text-gray-900 mb-3">Page Not Set Up Yet</h2>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Configuration is now managed through the Conferences page. Please use the Conferences section to configure registration settings for each conference.
+          </p>
+        </div>
       </div>
     </div>
   );

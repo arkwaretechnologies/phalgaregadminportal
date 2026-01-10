@@ -2,25 +2,29 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Registration } from '@/types';
-import RegistrationList from '@/components/RegistrationList';
+import RegistrationsPageClient from '@/components/RegistrationsPageClient';
 
 // Force dynamic rendering - this page requires authentication and database access
 export const dynamic = 'force-dynamic';
 
-async function getRegistrations(status: string = 'all', search: string = ''): Promise<Registration[]> {
+async function getRegistrations(status: string = 'all', search: string = '', confcode: string | null = null): Promise<Registration[]> {
   try {
     let query = supabase
       .from('regh')
       .select('*')
       .order('regdate', { ascending: false });
 
+    if (confcode) {
+      query = query.eq('confcode', confcode);
+    }
+
     if (status !== 'all') {
-      query = query.eq('status', status);
+      query = query.eq('status', status.toUpperCase());
     }
 
     if (search) {
       query = query.or(
-        `transid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
+        `regid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
       );
     }
 
@@ -41,7 +45,7 @@ async function getRegistrations(status: string = 'all', search: string = ''): Pr
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { status?: string; search?: string };
+  searchParams: { status?: string; search?: string; confcode?: string };
 }) {
   const user = await getSession();
 
@@ -51,17 +55,24 @@ export default async function DashboardPage({
 
   const status = searchParams?.status || 'all';
   const search = searchParams?.search || '';
-  const registrations = await getRegistrations(status, search);
+  let confcode = searchParams?.confcode || null;
+  
+  // If no confcode is provided, default to the first conference
+  if (!confcode) {
+    const { data: conferences } = await supabase
+      .from('conference')
+      .select('confcode')
+      .order('confcode', { ascending: true })
+      .limit(1);
+    
+    if (conferences && conferences.length > 0) {
+      confcode = conferences[0].confcode;
+    }
+  }
+  
+  const registrations = await getRegistrations(status, search, confcode);
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Registrations</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Manage participant registrations
-        </p>
-      </div>
-      <RegistrationList initialRegistrations={registrations} />
-    </div>
+    <RegistrationsPageClient initialRegistrations={registrations} />
   );
 }

@@ -11,7 +11,7 @@ Admin dashboard for managing participant registrations for the Phalga Online Reg
 - Real-time countdown timer showing time left for payment proof submission (24 hours)
 - Auto-rejection of registrations past 24 hours with email notification
 - View registration details and participant information
-- Filter and search registrations by status, TRANSID, email, or contact person
+- Filter and search registrations by status, Registration ID, email, or contact person
 
 ## Prerequisites
 
