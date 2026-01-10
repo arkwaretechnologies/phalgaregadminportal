@@ -1,0 +1,8 @@
+{
+  // Tailwind uses custom at-rules like @tailwind/@apply/@layer.
+  // Without Tailwind-aware CSS tooling, VS Code/Cursor may warn "Unknown at rule @tailwind".
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore"
+}
+
