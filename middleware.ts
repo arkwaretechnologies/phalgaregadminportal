@@ -37,7 +37,11 @@ export async function middleware(request: NextRequest) {
       if (!payload) {
         const url = request.nextUrl.clone();
         url.pathname = '/login';
-        return NextResponse.redirect(url);
+        const res = NextResponse.redirect(url);
+        // If the token is invalid/expired (common after deploys if JWT_SECRET changes),
+        // clear it so users don't have to manually delete site data.
+        res.cookies.delete('auth-token');
+        return res;
       }
 
       // Check role-based access for admin routes
@@ -56,7 +60,9 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
-      return NextResponse.redirect(url);
+      const res = NextResponse.redirect(url);
+      res.cookies.delete('auth-token');
+      return res;
     }
   }
 
@@ -71,7 +77,9 @@ export async function middleware(request: NextRequest) {
     try {
       const payload = await verifyToken(token);
       if (!payload) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const res = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        res.cookies.delete('auth-token');
+        return res;
       }
 
       // Check role-based access for admin-only API routes
@@ -87,7 +95,9 @@ export async function middleware(request: NextRequest) {
 
       return NextResponse.next();
     } catch (error) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const res = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      res.cookies.delete('auth-token');
+      return res;
     }
   }
 
