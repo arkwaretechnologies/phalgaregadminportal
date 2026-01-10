@@ -22,17 +22,19 @@ async function getRegistration(batchnum: number): Promise<RegistrationDetail | n
 
     // Fetch registration details (from regd table if exists)
     // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
-    const { data: regd } = registration.regid
-      ? await supabase
-          .from('regd')
-          .select('*')
-          .eq('regid', registration.regid)
-          .order('linenum', { ascending: true })
-      : [];
+    let regd = undefined;
+    if (registration.regid) {
+      const { data } = await supabase
+        .from('regd')
+        .select('*')
+        .eq('regid', registration.regid)
+        .order('linenum', { ascending: true });
+      regd = data || undefined;
+    }
 
     return {
       ...registration,
-      regd: regd || undefined,
+      regd,
     };
   } catch (error) {
     console.error('Error fetching registration:', error);

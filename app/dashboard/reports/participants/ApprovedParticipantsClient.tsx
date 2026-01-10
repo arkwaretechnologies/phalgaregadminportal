@@ -198,7 +198,7 @@ export default function ApprovedParticipantsClient({
                       {participant.email || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(participant.registration?.regdate)}
+                      {formatDate(participant.registration?.regdate ?? null)}
                     </td>
                   </tr>
                 ))}

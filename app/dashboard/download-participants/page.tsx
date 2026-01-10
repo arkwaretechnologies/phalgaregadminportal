@@ -24,7 +24,7 @@ export default function DownloadParticipantsPage() {
           const fetchedConferences = data.conferences || [];
           setConferences(fetchedConferences);
 
-          // Default to the first conference if available
+          // Default to the first conference if available and no conference is selected
           if (fetchedConferences.length > 0 && !selectedConfcode) {
             setSelectedConfcode(fetchedConferences[0].confcode);
           }
@@ -37,6 +37,7 @@ export default function DownloadParticipantsPage() {
     };
 
     fetchConferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const downloadFile = async (url: string, filename: string): Promise<void> => {
