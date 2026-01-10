@@ -93,11 +93,11 @@ export default async function DashboardPage({
       .order('confcode', { ascending: true })
       .limit(1);
     
-    if (conferences && conferences.length > 0) {
-      confcode = conferences[0].confcode;
+    const firstConf = conferences && conferences.length > 0 ? conferences[0].confcode : null;
+    if (firstConf && typeof firstConf === 'string') {
       // Redirect to include confcode in URL if it wasn't there
       const params = new URLSearchParams();
-      params.set('confcode', confcode);
+      params.set('confcode', firstConf);
       if (status !== 'all') params.set('status', status);
       if (search) params.set('search', search);
       redirect(`/dashboard?${params.toString()}`);
