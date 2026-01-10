@@ -291,7 +291,7 @@ export default function RegistrationList({
                     id="status"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-700 font-medium appearance-none cursor-pointer"
+                    className="w-full pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900 font-medium appearance-none cursor-pointer"
                   >
                     <option value="all">All Registrations</option>
                     <option value="PENDING">Pending</option>
@@ -427,7 +427,7 @@ export default function RegistrationList({
                     id="itemsPerPage"
                     value={itemsPerPage === 'all' ? 'all' : itemsPerPage.toString()}
                     onChange={(e) => handleItemsPerPageChange(e.target.value)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900"
                   >
                     <option value="20">20</option>
                     <option value="50">50</option>

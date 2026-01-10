@@ -177,7 +177,7 @@ export default function RegistrationsPageClient({
                 value={selectedConfcode || (conferences.length > 0 ? conferences[0].confcode : '')}
                 onChange={handleConferenceChange}
                 disabled={loadingConferences || conferences.length === 0}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white text-gray-900"
               >
                 {conferences.length === 0 && !loadingConferences ? (
                   <option value="">No conferences available</option>

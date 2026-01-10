@@ -18,21 +18,19 @@ function escapeCSV(value: any): string {
   return stringValue;
 }
 
-// Helper function to format date
-function formatDate(dateString: string | null): string {
-  if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return dateString;
-  }
+function escapeSqlIdentifier(identifier: string): string {
+  // Keep original casing; quote to be safe with any edge cases
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
+function escapeSqlValue(value: any): string {
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
+  if (typeof value === 'bigint') return String(value);
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  // Supabase returns dates/timestamps as strings; keep as quoted strings
+  const s = String(value);
+  return `'${s.replace(/'/g, "''")}'`;
 }
 
 export async function GET(request: NextRequest) {
@@ -43,6 +41,7 @@ export async function GET(request: NextRequest) {
     // Get confcode from query parameters
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
+    const format = (searchParams.get('format') || 'csv').toLowerCase(); // csv | sql
 
     // Fetch approved registrations, optionally filtered by conference
     let query = supabase
@@ -97,13 +96,29 @@ export async function GET(request: NextRequest) {
         ];
       }
 
+      if (format === 'sql') {
+        const cols = regdColumns.map(escapeSqlIdentifier).join(', ');
+        const sql = [
+          '-- regd export (no rows found for the current filter)',
+          confcode ? `-- confcode = ${confcode}` : '-- confcode = (not provided)',
+          'BEGIN;',
+          `-- Columns: ${regdColumns.join(', ')}`,
+          `-- Example: INSERT INTO public.regd (${cols}) VALUES (...);`,
+          'COMMIT;',
+          '',
+        ].join('\n');
+        return new NextResponse(sql, {
+          headers: {
+            'Content-Type': 'text/sql; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="approved_participants_regD.sql"',
+          },
+        });
+      }
+
       // Return empty CSV with headers (all regd columns)
-      const headers = regdColumns.map(col => {
-        return col
-          .replace(/_/g, ' ')
-          .replace(/\b\w/g, l => l.toUpperCase());
-      }).join(',');
-      
+      // IMPORTANT: keep original Supabase column names and casing
+      const headers = regdColumns.map(escapeCSV).join(',');
+
       return new NextResponse(headers, {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -190,25 +205,30 @@ export async function GET(request: NextRequest) {
     const csvRows: string[] = [];
     
     // CSV Headers: All columns from regd table
-    const headers = regdColumns.map(col => {
-      // Convert snake_case to Title Case with spaces
-      return col
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, l => l.toUpperCase());
-    });
-    
-    csvRows.push(headers.map(escapeCSV).join(','));
+    // IMPORTANT: keep original Supabase column names and casing
+    csvRows.push(regdColumns.map(escapeCSV).join(','));
 
-    // Helper function to format a value for CSV (handles dates)
-    function formatValueForCSV(value: any, columnName: string): string {
-      if (value === null || value === undefined) {
-        return '';
+    if (format === 'sql') {
+      const colsSql = regdColumns.map(escapeSqlIdentifier).join(', ');
+      const lines: string[] = [];
+      lines.push('-- regd export');
+      if (confcode) lines.push(`-- confcode = ${confcode}`);
+      lines.push('BEGIN;');
+
+      for (const participant of participants as any[]) {
+        const valuesSql = regdColumns.map((col) => escapeSqlValue(participant?.[col])).join(', ');
+        lines.push(`INSERT INTO public.regd (${colsSql}) VALUES (${valuesSql});`);
       }
-      // Format dates if column name suggests it's a date
-      if (columnName.includes('date') || columnName.includes('expiry')) {
-        return escapeCSV(formatDate(value));
-      }
-      return escapeCSV(value);
+
+      lines.push('COMMIT;');
+      lines.push('');
+
+      return new NextResponse(lines.join('\n'), {
+        headers: {
+          'Content-Type': 'text/sql; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="approved_participants_regD.sql"',
+        },
+      });
     }
 
     // Process all participants (already filtered to only approved registrations)
@@ -217,7 +237,7 @@ export async function GET(request: NextRequest) {
         // Add one row per participant with all regd columns
         const row = regdColumns.map(col => {
           const value = participant[col];
-          return formatValueForCSV(value, col);
+          return escapeCSV(value);
         });
         csvRows.push(row.join(','));
       }

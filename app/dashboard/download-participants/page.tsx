@@ -11,6 +11,7 @@ export default function DownloadParticipantsPage() {
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [selectedConfcode, setSelectedConfcode] = useState<string | null>(null);
   const [loadingConferences, setLoadingConferences] = useState(true);
+  const [downloadFormat, setDownloadFormat] = useState<'csv' | 'sql'>('csv');
 
   // Fetch conferences on mount
   useEffect(() => {
@@ -52,11 +53,15 @@ export default function DownloadParticipantsPage() {
       throw new Error(errorData.error || `Failed to download ${filename}`);
     }
 
-    // Get the CSV content
-    const csvContent = await response.text();
+    // Get the file content
+    const content = await response.text();
     
     // Create a blob and download it
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blobType =
+      filename.toLowerCase().endsWith('.sql')
+        ? 'text/sql;charset=utf-8;'
+        : 'text/csv;charset=utf-8;';
+    const blob = new Blob([content], { type: blobType });
     const link = document.createElement('a');
     const downloadUrl = URL.createObjectURL(blob);
     
@@ -82,12 +87,13 @@ export default function DownloadParticipantsPage() {
 
     try {
       const dateStr = new Date().toISOString().split('T')[0];
-      const confcodeParam = `?confcode=${encodeURIComponent(selectedConfcode)}`;
+      const confcodeParam = `?confcode=${encodeURIComponent(selectedConfcode)}&format=${encodeURIComponent(downloadFormat)}`;
+      const ext = downloadFormat;
 
       // Download participants file first (regD)
       await downloadFile(
         `/api/participants/export${confcodeParam}`,
-        `approved_participants_regD_${selectedConfcode}_${dateStr}.csv`
+        `approved_participants_regD_${selectedConfcode}_${dateStr}.${ext}`
       );
 
       // Small delay to allow browser to handle first download
@@ -96,7 +102,7 @@ export default function DownloadParticipantsPage() {
       // Download registrations file (regH)
       await downloadFile(
         `/api/registrations/export${confcodeParam}`,
-        `approved_participants_regH_${selectedConfcode}_${dateStr}.csv`
+        `approved_participants_regH_${selectedConfcode}_${dateStr}.${ext}`
       );
     } catch (err: any) {
       console.error('Download error:', err);
@@ -127,28 +133,48 @@ export default function DownloadParticipantsPage() {
 
       {/* Conference Filter */}
       <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-        <label htmlFor="conference-filter" className="block text-sm font-medium text-gray-700 mb-2">
-          Conference
-        </label>
-        <select
-          id="conference-filter"
-          value={selectedConfcode || ''}
-          onChange={(e) => setSelectedConfcode(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-          disabled={loadingConferences || loading}
-        >
-          {loadingConferences ? (
-            <option value="">Loading conferences...</option>
-          ) : conferences.length === 0 ? (
-            <option value="">No conferences available</option>
-          ) : (
-            conferences.map((conf) => (
-              <option key={conf.confcode} value={conf.confcode}>
-                {conf.confcode} - {conf.name || 'Unnamed Conference'}
-              </option>
-            ))
-          )}
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="conference-filter" className="block text-sm font-medium text-gray-700 mb-2">
+              Conference
+            </label>
+            <select
+              id="conference-filter"
+              value={selectedConfcode || ''}
+              onChange={(e) => setSelectedConfcode(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+              disabled={loadingConferences || loading}
+            >
+              {loadingConferences ? (
+                <option value="">Loading conferences...</option>
+              ) : conferences.length === 0 ? (
+                <option value="">No conferences available</option>
+              ) : (
+                conferences.map((conf) => (
+                  <option key={conf.confcode} value={conf.confcode}>
+                    {conf.confcode} - {conf.name || 'Unnamed Conference'}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="download-format" className="block text-sm font-medium text-gray-700 mb-2">
+              Download format
+            </label>
+            <select
+              id="download-format"
+              value={downloadFormat}
+              onChange={(e) => setDownloadFormat(e.target.value as 'csv' | 'sql')}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+              disabled={loadingConferences || loading}
+            >
+              <option value="csv">CSV</option>
+              <option value="sql">SQL (INSERT statements)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Main Content Card */}

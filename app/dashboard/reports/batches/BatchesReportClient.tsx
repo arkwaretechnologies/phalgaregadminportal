@@ -132,7 +132,7 @@ export default function BatchesReportClient({
         <select
           value={selectedConfcode || ''}
           onChange={(e) => handleConferenceChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
         >
           {conferences.map((conference) => (
             <option key={conference.confcode} value={conference.confcode}>
