@@ -12,6 +12,9 @@ export default async function HomePage() {
   } else {
     redirect('/login');
   }
+  
+  // This is never reached because redirect() throws, but Next.js needs a return
+  return null;
 }
 
 

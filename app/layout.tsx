@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Phalga Online Registration Admin",
   description: "Admin dashboard for registration management",
+  icons: {
+    icon: "/left.png",
+    shortcut: "/left.png",
+    apple: "/left.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -26,5 +31,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-
