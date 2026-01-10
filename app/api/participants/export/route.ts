@@ -35,8 +35,8 @@ function escapeSqlValue(value: any): string {
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication - admin only
-    await requireAuth(['admin']);
+    // Check authentication - allow admin and reviewer
+    await requireAuth(['admin', 'reviewer']);
 
     // Get confcode from query parameters
     const searchParams = request.nextUrl.searchParams;

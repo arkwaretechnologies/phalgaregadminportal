@@ -1,31 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CountdownTimerProps {
   registrationDate: string | null;
   status: string | null;
-  onExpired?: () => void;
 }
 
 export default function CountdownTimer({
   registrationDate,
   status,
-  onExpired,
 }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<string>('--:--:--');
   const [isExpired, setIsExpired] = useState(false);
-  const hasCalledOnExpired = useRef(false);
-  const onExpiredRef = useRef<CountdownTimerProps['onExpired']>(onExpired);
-
-  // Keep latest callback without retriggering the timer effect (prevents re-render loops)
-  useEffect(() => {
-    onExpiredRef.current = onExpired;
-  }, [onExpired]);
 
   useEffect(() => {
     // Reset the expired flag when status or registration date changes
-    hasCalledOnExpired.current = false;
     setIsExpired(false);
     
     // Normalize status to uppercase for comparison
@@ -45,11 +35,6 @@ export default function CountdownTimer({
       if (difference <= 0) {
         setIsExpired(true);
         setTimeLeft('EXPIRED');
-        // Only call onExpired once per expiration
-        if (onExpiredRef.current && !hasCalledOnExpired.current) {
-          hasCalledOnExpired.current = true;
-          onExpiredRef.current();
-        }
         return;
       }
 

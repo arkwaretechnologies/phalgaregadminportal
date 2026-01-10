@@ -7,21 +7,52 @@
   --foreground: #171717;
 }
 
+/* Force light mode for better readability */
+html {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff; /* Force white background */
+    --foreground: #171717; /* Force dark text */
+  }
+  
+  html {
+    color-scheme: light; /* Override system preference */
   }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: #171717 !important; /* Force dark text */
+  background: #f9fafb !important; /* Force light gray background */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+}
+
+/* Force light mode on all elements */
+* {
+  color-scheme: light !important;
+}
+
+/* Ensure form elements are readable */
+input, textarea, select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Ensure modals and overlays have proper backgrounds */
+dialog, [role="dialog"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
 }
 
 @layer utilities {

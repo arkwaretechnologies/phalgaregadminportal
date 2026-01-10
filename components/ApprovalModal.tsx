@@ -81,7 +81,7 @@ export default function ApprovalModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">
+        <h2 className="text-xl font-bold mb-4 text-gray-900">
           {action === 'approve' ? 'Approve' : 'Reject'} Registration
         </h2>
 
@@ -96,7 +96,7 @@ export default function ApprovalModal({
               Action
             </label>
             <div className="flex gap-4">
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-900">
                 <input
                   type="radio"
                   value="approve"
@@ -110,7 +110,7 @@ export default function ApprovalModal({
                 />
                 Approve
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-900">
                 <input
                   type="radio"
                   value="reject"

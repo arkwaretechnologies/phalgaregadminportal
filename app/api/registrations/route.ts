@@ -49,71 +49,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Auto-reject registrations that have passed 24 hours and are still PENDING
-    const now = new Date();
-    const processedRegistrations = await Promise.all(
-      (registrations || []).map(async (reg: any) => {
-        // Normalize status to uppercase for comparison
-        const regStatus = reg.status?.toUpperCase() || null;
-        
-        if (regStatus === 'PENDING' && reg.regdate) {
-          const registrationTime = new Date(reg.regdate).getTime();
-          const deadline = registrationTime + 24 * 60 * 60 * 1000; // 24 hours
-          
-          if (now.getTime() > deadline) {
-            // Auto-reject expired registrations
-            // Only update if still PENDING to avoid race conditions
-            try {
-              const rejectionRemarks = 'Unable to Upload Payment Proof within 24 hours of submission.';
-              
-              const { data: updatedRegs, error: updateError } = await supabase
-                .from('regh')
-                .update({
-                  status: 'REJECTED',
-                  remarks: rejectionRemarks,
-                })
-                .eq('batchnum', reg.batchnum)
-                .eq('status', 'PENDING') // Only update if still PENDING to prevent loops
-                .select();
-
-              if (updateError) {
-                console.error(`Failed to auto-reject registration ${reg.batchnum}:`, updateError);
-                return reg;
-              }
-
-              if (updatedRegs && updatedRegs.length > 0) {
-                const autoRejectedReg = updatedRegs[0];
-                // Send email notification for auto-rejection (non-blocking)
-                console.log(`[AUTO-REJECT] Sending email for expired registration ${autoRejectedReg.batchnum}`);
-                sendStatusUpdateEmail({
-                  registration: autoRejectedReg as Registration,
-                  status: 'REJECTED',
-                  remarks: rejectionRemarks,
-                })
-                  .then((success) => {
-                    if (success) {
-                      console.log(`[AUTO-REJECT] Email sent successfully for registration ${autoRejectedReg.batchnum}`);
-                    } else {
-                      console.error(`[AUTO-REJECT] Failed to send email for registration ${autoRejectedReg.batchnum}`);
-                    }
-                  })
-                  .catch((emailError) => {
-                    console.error(`[AUTO-REJECT] Exception sending email for registration ${autoRejectedReg.batchnum}:`, emailError);
-                  });
-                return autoRejectedReg;
-              }
-            } catch (err) {
-              console.error(`Failed to auto-reject registration ${reg.batchnum}:`, err);
-            }
-          }
-        }
-        return reg;
-      })
-    );
-
     // Attach participant counts from regD (per regid) for display in the table.
     // regd rows are linked to regh by regid, not batchnum (batchnum is only generated when approved).
-    const regids = (processedRegistrations || [])
+    const regids = (registrations || [])
       .map((r: any) => r?.regid)
       .filter((id: any) => id && typeof id === 'string');
 
@@ -149,7 +87,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const registrationsWithCounts = (processedRegistrations || []).map((r: any) => {
+    const registrationsWithCounts = (registrations || []).map((r: any) => {
       const regidStr = r?.regid ? String(r.regid) : null;
       const count = regidStr ? (countsByRegid.get(regidStr) || 0) : 0;
       if (count === 0 && regidStr) {

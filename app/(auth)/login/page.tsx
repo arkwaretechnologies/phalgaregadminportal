@@ -58,7 +58,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative overflow-hidden" style={{ colorScheme: 'light' }}>
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
@@ -92,10 +92,10 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold mb-2 animate-slide-down tracking-tight">
+            <h2 className="text-4xl font-bold mb-2 animate-slide-down tracking-tight text-gray-900">
               <span className="text-indigo-600">PhALGA</span>
             </h2>
-            <p className="text-gray-600 text-sm font-medium animate-slide-down animation-delay-100 mt-2">
+            <p className="text-gray-700 text-sm font-medium animate-slide-down animation-delay-100 mt-2">
               Registration Committee Portal
             </p>
           </div>

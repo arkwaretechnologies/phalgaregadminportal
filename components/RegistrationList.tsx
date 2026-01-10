@@ -30,11 +30,6 @@ export default function RegistrationList({
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
   const [viewLoadingIdentifier, setViewLoadingIdentifier] = useState<string | number | null>(null);
 
-  const autoRejectInFlight = useRef<Set<string>>(new Set());
-  const hasRefreshedAfterAutoReject = useRef(false);
-  const AUTO_REJECT_REFRESH_KEY = 'phalga:autoRejectRefreshed';
-  const AUTO_REJECT_REMARK =
-    'Unable to Upload Payment Proof within 24 hours of submission.';
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -69,11 +64,6 @@ export default function RegistrationList({
     fetchRegistrations();
   }, [fetchRegistrations]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    hasRefreshedAfterAutoReject.current =
-      window.sessionStorage.getItem(AUTO_REJECT_REFRESH_KEY) === '1';
-  }, []);
 
   // Calculate pagination
   const totalItems = registrations.length;
@@ -186,58 +176,6 @@ export default function RegistrationList({
     fetchRegistrations();
   };
 
-  const handleAutoRejectExpired = useCallback(
-    async (registration: Registration) => {
-      const regid = registration.regid;
-      const normalizedStatus = registration.status?.toUpperCase() || null;
-
-      if (normalizedStatus !== 'PENDING') return;
-      if (autoRejectInFlight.current.has(regid)) return;
-
-      autoRejectInFlight.current.add(regid);
-      try {
-        const response = await fetch('/api/registrations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            regid: registration.regid,
-            batchnum: registration.batchnum || undefined,
-            status: 'REJECTED',
-            remarks: AUTO_REJECT_REMARK,
-          }),
-        });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => null);
-          console.error('Auto-reject failed:', err || response.statusText);
-          return;
-        }
-
-        // Update local UI immediately
-        setRegistrations((prev) =>
-          prev.map((r) =>
-              r.regid === regid
-              ? { ...r, status: 'REJECTED', remarks: AUTO_REJECT_REMARK }
-              : r
-          )
-        );
-        onRegistrationsChanged?.();
-
-        // Refresh exactly once (requested) after sending
-        if (
-          typeof window !== 'undefined' &&
-          !hasRefreshedAfterAutoReject.current
-        ) {
-          hasRefreshedAfterAutoReject.current = true;
-          window.sessionStorage.setItem(AUTO_REJECT_REFRESH_KEY, '1');
-          window.location.reload();
-        }
-      } finally {
-        autoRejectInFlight.current.delete(regid);
-      }
-    },
-    [AUTO_REJECT_REMARK, onRegistrationsChanged]
-  );
 
   return (
     <>
@@ -361,12 +299,6 @@ export default function RegistrationList({
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-500">Email</span>
-                      <span className="text-gray-900 text-right break-all">
-                        {registration.email || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
                       <span className="text-gray-500">Participants</span>
                       <span className="text-gray-900 text-right tabular-nums">
                         {registration.participant_count ?? 0}
@@ -379,7 +311,6 @@ export default function RegistrationList({
                     <CountdownTimer
                       registrationDate={registration.regdate}
                       status={registration.status}
-                      onExpired={() => handleAutoRejectExpired(registration)}
                     />
                   </div>
 
@@ -452,34 +383,31 @@ export default function RegistrationList({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Registration ID
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Registration Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Province
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         LGU
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Contact Person
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Participants
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Time Left
                       </th>
                     </tr>
@@ -487,12 +415,12 @@ export default function RegistrationList({
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedRegistrations.map((registration) => (
                     <tr key={registration.batchnum || registration.regid} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {registration.regid}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-500">
                           <div>{formatDate(registration.regdate)}</div>
                           <div className="text-xs text-gray-400 mt-1">
@@ -500,35 +428,30 @@ export default function RegistrationList({
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {registration.province || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {registration.lgu || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {registration.contactperson || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {registration.email || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-900 tabular-nums">
                           {registration.participant_count ?? 0}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         {getStatusBadge(registration.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleViewDetails(registration)}
@@ -565,11 +488,10 @@ export default function RegistrationList({
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2 whitespace-nowrap">
                         <CountdownTimer
                           registrationDate={registration.regdate}
                           status={registration.status}
-                          onExpired={() => handleAutoRejectExpired(registration)}
                         />
                       </td>
                     </tr>

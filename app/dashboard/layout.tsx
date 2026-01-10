@@ -93,7 +93,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden" style={{ colorScheme: 'light' }}>
       {/* Mobile top bar */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="h-14 px-4 flex items-center justify-between">
@@ -172,6 +172,68 @@ export default function DashboardLayout({
                 </svg>
                 <span className="ml-3 font-medium">Registrations</span>
               </Link>
+              <Link
+                href="/dashboard/download-participants"
+                className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+                  pathname === '/dashboard/download-participants'
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`}
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="ml-3 font-medium">Download Participant List</span>
+              </Link>
+              <div>
+                <button
+                  onClick={() => setReportsMenuOpen(!reportsMenuOpen)}
+                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 ${
+                    pathname?.startsWith('/dashboard/reports')
+                      ? 'bg-gray-800 text-white'
+                      : 'text-gray-300 hover:bg-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="ml-3 font-medium">Reports</span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 transition-transform duration-200 ${reportsMenuOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {reportsMenuOpen && (
+                  <div className="mt-1 ml-6 space-y-1">
+                    <Link
+                      href="/dashboard/reports/participants"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/participants'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">All Approved Participants</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/reports/batches"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/batches'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Per Batch Number</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
               {user.role === 'admin' && (
                 <>
                   <Link
@@ -206,68 +268,6 @@ export default function DashboardLayout({
                     </svg>
                     <span className="ml-3 font-medium">Conferences</span>
                   </Link>
-                  <Link
-                    href="/dashboard/download-participants"
-                    className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
-                      pathname === '/dashboard/download-participants'
-                        ? 'bg-gray-800 text-white'
-                        : 'text-gray-300 hover:bg-gray-800'
-                    }`}
-                  >
-                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="ml-3 font-medium">Download Participant List</span>
-                  </Link>
-                  <div>
-                    <button
-                      onClick={() => setReportsMenuOpen(!reportsMenuOpen)}
-                      className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 ${
-                        pathname?.startsWith('/dashboard/reports')
-                          ? 'bg-gray-800 text-white'
-                          : 'text-gray-300 hover:bg-gray-800'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="ml-3 font-medium">Reports</span>
-                      </div>
-                      <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${reportsMenuOpen ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {reportsMenuOpen && (
-                      <div className="mt-1 ml-6 space-y-1">
-                        <Link
-                          href="/dashboard/reports/participants"
-                          className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                            pathname === '/dashboard/reports/participants'
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-                          }`}
-                        >
-                          <span className="text-sm">All Approved Participants</span>
-                        </Link>
-                        <Link
-                          href="/dashboard/reports/batches"
-                          className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                            pathname === '/dashboard/reports/batches'
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-                          }`}
-                        >
-                          <span className="text-sm">Per Batch Number</span>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
                   <Link
                     href="/dashboard/users"
                     className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
@@ -366,6 +366,84 @@ export default function DashboardLayout({
                 </span>
               )}
             </Link>
+            <Link
+              href="/dashboard/download-participants"
+              className={`flex items-center ${
+                sidebarOpen ? 'px-4' : 'px-3 justify-center'
+              } py-3 rounded-lg transition-all duration-200 group ${
+                pathname === '/dashboard/download-participants'
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-300 hover:bg-gray-800'
+              }`}
+              title="Download Participant List"
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {sidebarOpen && (
+                <span className="ml-3 font-medium transition-opacity duration-300">
+                  Download Participant List
+                </span>
+              )}
+            </Link>
+            <div>
+              <button
+                onClick={() => setReportsMenuOpen(!reportsMenuOpen)}
+                className={`w-full flex items-center ${
+                  sidebarOpen ? 'px-4' : 'px-3 justify-center'
+                } py-3 rounded-lg transition-all duration-200 group ${
+                  pathname?.startsWith('/dashboard/reports')
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`}
+                title="Reports"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {sidebarOpen && (
+                  <>
+                    <span className="ml-3 font-medium transition-opacity duration-300 flex-1 text-left">
+                      Reports
+                    </span>
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${reportsMenuOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+              {sidebarOpen && reportsMenuOpen && (
+                <div className="mt-1 ml-6 space-y-1">
+                  <Link
+                    href="/dashboard/reports/participants"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/participants'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="All Approved Participants"
+                  >
+                    <span className="text-sm">All Approved Participants</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/batches"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/batches'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Per Batch Number"
+                  >
+                    <span className="text-sm">Per Batch Number</span>
+                  </Link>
+                </div>
+              )}
+            </div>
             {user.role === 'admin' && (
               <>
                 <Link
@@ -414,84 +492,6 @@ export default function DashboardLayout({
                     </span>
                   )}
                 </Link>
-                <Link
-                  href="/dashboard/download-participants"
-                  className={`flex items-center ${
-                    sidebarOpen ? 'px-4' : 'px-3 justify-center'
-                  } py-3 rounded-lg transition-all duration-200 group ${
-                    pathname === '/dashboard/download-participants'
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-800'
-                  }`}
-                  title="Download Participant List"
-                >
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  {sidebarOpen && (
-                    <span className="ml-3 font-medium transition-opacity duration-300">
-                      Download Participant List
-                    </span>
-                  )}
-                </Link>
-                  <div>
-                    <button
-                      onClick={() => setReportsMenuOpen(!reportsMenuOpen)}
-                      className={`w-full flex items-center ${
-                        sidebarOpen ? 'px-4' : 'px-3 justify-center'
-                      } py-3 rounded-lg transition-all duration-200 group ${
-                        pathname?.startsWith('/dashboard/reports')
-                          ? 'bg-gray-800 text-white'
-                          : 'text-gray-300 hover:bg-gray-800'
-                      }`}
-                      title="Reports"
-                    >
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      {sidebarOpen && (
-                        <>
-                          <span className="ml-3 font-medium transition-opacity duration-300 flex-1 text-left">
-                            Reports
-                          </span>
-                          <svg
-                            className={`w-4 h-4 transition-transform duration-200 ${reportsMenuOpen ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </>
-                      )}
-                    </button>
-                    {sidebarOpen && reportsMenuOpen && (
-                      <div className="mt-1 ml-6 space-y-1">
-                        <Link
-                          href="/dashboard/reports/participants"
-                          className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                            pathname === '/dashboard/reports/participants'
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-                          }`}
-                          title="All Approved Participants"
-                        >
-                          <span className="text-sm">All Approved Participants</span>
-                        </Link>
-                        <Link
-                          href="/dashboard/reports/batches"
-                          className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                            pathname === '/dashboard/reports/batches'
-                              ? 'bg-gray-800 text-white'
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-                          }`}
-                          title="Per Batch Number"
-                        >
-                          <span className="text-sm">Per Batch Number</span>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
                 <Link
                   href="/dashboard/users"
                   className={`flex items-center ${
@@ -542,7 +542,7 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main
-        className={`transition-all duration-300 ease-in-out px-4 py-4 sm:px-6 sm:py-6 lg:p-8 pt-20 lg:pt-8 ${
+        className={`transition-all duration-300 ease-in-out px-4 py-4 sm:px-6 sm:py-6 lg:p-8 pt-20 lg:pt-8 bg-gray-50 text-gray-900 ${
           sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
         }`}
       >

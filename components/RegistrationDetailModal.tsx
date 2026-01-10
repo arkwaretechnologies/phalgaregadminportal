@@ -22,22 +22,12 @@ export default function RegistrationDetailModal({
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [currentRegistration, setCurrentRegistration] = useState<RegistrationDetail>(registration);
 
-  const autoRejectInFlight = useRef(false);
-  const hasRefreshedAfterAutoReject = useRef(false);
-  const AUTO_REJECT_REFRESH_KEY = 'phalga:autoRejectRefreshed';
-  const AUTO_REJECT_REMARK =
-    'Unable to Upload Payment Proof within 24 hours of submission.';
 
   // Update local registration state when prop changes
   useEffect(() => {
     setCurrentRegistration(registration);
   }, [registration]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    hasRefreshedAfterAutoReject.current =
-      window.sessionStorage.getItem(AUTO_REJECT_REFRESH_KEY) === '1';
-  }, []);
 
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
@@ -90,50 +80,6 @@ export default function RegistrationDetailModal({
     onUpdate();
   };
 
-  const handleAutoRejectExpired = useCallback(async () => {
-    const normalizedStatus = currentRegistration.status?.toUpperCase() || null;
-    if (normalizedStatus !== 'PENDING') return;
-    if (autoRejectInFlight.current) return;
-
-    autoRejectInFlight.current = true;
-    try {
-      const response = await fetch('/api/registrations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batchnum: currentRegistration.batchnum,
-          status: 'REJECTED',
-          remarks: AUTO_REJECT_REMARK,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => null);
-        console.error('Auto-reject failed:', err || response.statusText);
-        return;
-      }
-
-      setCurrentRegistration((prev) => ({
-        ...prev,
-        status: 'REJECTED',
-        remarks: AUTO_REJECT_REMARK,
-      }));
-
-      onUpdate();
-
-      // Refresh exactly once (requested)
-      if (
-        typeof window !== 'undefined' &&
-        !hasRefreshedAfterAutoReject.current
-      ) {
-        hasRefreshedAfterAutoReject.current = true;
-        window.sessionStorage.setItem(AUTO_REJECT_REFRESH_KEY, '1');
-        window.location.reload();
-      }
-    } finally {
-      autoRejectInFlight.current = false;
-    }
-  }, [AUTO_REJECT_REMARK, currentRegistration.batchnum, currentRegistration.status, onUpdate]);
 
   if (!isOpen) return null;
 
@@ -172,7 +118,6 @@ export default function RegistrationDetailModal({
                       <CountdownTimer
                         registrationDate={currentRegistration.regdate}
                         status={currentRegistration.status}
-                        onExpired={handleAutoRejectExpired}
                       />
                     </div>
                   )}

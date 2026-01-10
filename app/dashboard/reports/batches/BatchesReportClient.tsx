@@ -217,19 +217,16 @@ export default function BatchesReportClient({
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Registration ID
                               </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Contact Person
                               </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Province/LGU
                               </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Email
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Registration Date
                               </th>
                             </tr>
@@ -237,19 +234,16 @@ export default function BatchesReportClient({
                           <tbody className="bg-white divide-y divide-gray-200">
                             {batch.registrations.map((reg) => (
                               <tr key={reg.regid} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                                   {reg.regid}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                   {reg.contactperson || 'N/A'}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                   {[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}
                                 </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  {reg.email || 'N/A'}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                   {formatDate(reg.regdate)}
                                 </td>
                               </tr>
@@ -267,36 +261,30 @@ export default function BatchesReportClient({
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Name
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Designation
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                   Province/LGU
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Email
                                 </th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                               {batch.participants.map((participant, index) => (
                                 <tr key={`${participant.regid}-${participant.linenum}-${index}`} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                                     {[participant.lastname, participant.firstname, participant.middleinit]
                                       .filter(Boolean)
                                       .join(', ') || 'N/A'}
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                     {participant.designation || 'N/A'}
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                                     {[participant.province, participant.lgu].filter(Boolean).join(' / ') || 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    {participant.email || 'N/A'}
                                   </td>
                                 </tr>
                               ))}

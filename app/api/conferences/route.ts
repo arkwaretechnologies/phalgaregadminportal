@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Check authentication - admin only
-    await requireAuth(['admin']);
+    // Check authentication - allow admin and reviewer to view conferences
+    await requireAuth(['admin', 'reviewer']);
 
     const { data: conferences, error } = await supabase
       .from('conference')
