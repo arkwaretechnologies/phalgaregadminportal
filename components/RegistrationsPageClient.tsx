@@ -73,17 +73,19 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
 
 export default function RegistrationsPageClient({
   initialRegistrations,
+  initialConfcode,
 }: {
   initialRegistrations: Registration[];
+  initialConfcode?: string | null;
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
   const [selectedConfcode, setSelectedConfcode] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      return params.get('confcode');
+      return params.get('confcode') || initialConfcode || null;
     }
-    return null;
+    return initialConfcode || null;
   });
   const [loadingConferences, setLoadingConferences] = useState(true);
 
@@ -96,7 +98,7 @@ export default function RegistrationsPageClient({
           const fetchedConferences = data.conferences || [];
           setConferences(fetchedConferences);
           
-          // Sync selectedConfcode from URL if it exists
+          // Sync selectedConfcode from URL if it exists, or use initialConfcode from server
           if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const urlConfcode = params.get('confcode');
@@ -104,11 +106,11 @@ export default function RegistrationsPageClient({
             if (urlConfcode && urlConfcode !== selectedConfcode) {
               setSelectedConfcode(urlConfcode);
             } else if (!urlConfcode && fetchedConferences.length > 0) {
-              // No confcode in URL - server defaulted to first one, update URL
-              const firstConfcode = fetchedConferences[0].confcode;
-              setSelectedConfcode(firstConfcode);
+              // No confcode in URL - use initialConfcode if available, otherwise default to first
+              const confcodeToUse = initialConfcode || fetchedConferences[0].confcode;
+              setSelectedConfcode(confcodeToUse);
               const url = new URL(window.location.href);
-              url.searchParams.set('confcode', firstConfcode);
+              url.searchParams.set('confcode', confcodeToUse);
               window.history.replaceState({}, '', url.toString());
             }
           }

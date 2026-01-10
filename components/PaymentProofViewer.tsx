@@ -1,52 +1,84 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import PaymentProofImageViewer from './PaymentProofImageViewer';
+
+interface PaymentProof {
+  url: string;
+  uploaded_at: string;
+}
 
 interface PaymentProofViewerProps {
-  batchnum: number | null; // Batch number from database (route folder still uses [regnum] for URL param)
+  batchnum: number | null;
   regid: string;
 }
 
 export default function PaymentProofViewer({ batchnum, regid }: PaymentProofViewerProps) {
-  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [paymentProofs, setPaymentProofs] = useState<PaymentProof[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  const fetchPaymentProof = useCallback(async () => {
+  const fetchPaymentProofs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const identifier = batchnum || regid;
       const url = batchnum 
-        ? `/api/registrations/${batchnum}/payment-proof`
-        : `/api/registrations/${encodeURIComponent(regid)}/payment-proof`;
+        ? `/api/registrations/${batchnum}/payment-proofs`
+        : `/api/registrations/${encodeURIComponent(regid)}/payment-proofs`;
+      
       const response = await fetch(url);
       const data = await response.json();
 
-      if (response.ok && data.url) {
-        setProofUrl(data.url);
+      if (response.ok && data.paymentProofs) {
+        const proofs = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
+        console.log('[PaymentProofViewer] Loaded payment proofs:', proofs.length);
+        setPaymentProofs(proofs);
       } else {
-        setError(data.error || 'Payment proof not found');
+        const errorMsg = data.error || 'Failed to load payment proofs';
+        console.error('[PaymentProofViewer] Error loading payment proofs:', errorMsg, data);
+        setError(errorMsg);
       }
     } catch (err) {
-      console.error('Error fetching payment proof:', err);
-      setError('Failed to load payment proof');
+      console.error('Error fetching payment proofs:', err);
+      setError('Failed to load payment proofs');
     } finally {
       setLoading(false);
     }
   }, [batchnum, regid]);
 
   useEffect(() => {
-    fetchPaymentProof();
-  }, [fetchPaymentProof]);
+    fetchPaymentProofs();
+  }, [fetchPaymentProofs]);
+
+  const isImageFile = (url: string) => url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
+  const isPdfFile = (url: string) => url.toLowerCase().match(/\.pdf$/);
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const handleImageClick = (index: number) => {
+    setViewerIndex(index);
+  };
 
   if (loading) {
     return (
       <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          <p className="text-sm font-medium text-blue-700">Loading payment proof...</p>
+          <p className="text-sm font-medium text-blue-700">Loading payment proofs...</p>
         </div>
       </div>
     );
@@ -61,17 +93,14 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
     );
   }
 
-  if (!proofUrl) {
+  if (!loading && !error && paymentProofs.length === 0) {
     return (
       <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <p className="text-sm font-medium text-gray-700 mb-1">Proof of Payment</p>
-        <p className="text-sm text-gray-500">No payment proof uploaded</p>
+        <p className="text-sm text-gray-500">No payment proofs uploaded</p>
       </div>
     );
   }
-
-  const isImage = proofUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
-  const isPdf = proofUrl.toLowerCase().match(/\.pdf$/);
 
   return (
     <>
@@ -82,163 +111,99 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
           </svg>
           Proof of Payment
         </p>
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm text-green-700 font-medium">✓ Payment proof has been uploaded</span>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm text-green-700 font-medium">
+            ✓ {paymentProofs.length} payment proof{paymentProofs.length !== 1 ? 's' : ''} uploaded
+          </span>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm hover:shadow"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            View Uploaded File
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                // Use our API endpoint to download the file to avoid CORS issues
-                const identifier = batchnum || regid;
-                const url = batchnum 
-                  ? `/api/registrations/${batchnum}/payment-proof?download=true`
-                  : `/api/registrations/${encodeURIComponent(regid)}/payment-proof?download=true`;
-                const response = await fetch(url);
-                const blob = await response.blob();
-                const blobUrl = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                
-                // Get filename from response headers or use default
-                const contentDisposition = response.headers.get('content-disposition');
-                let fileName = `payment-proof-${regid}.pdf`;
-                if (contentDisposition) {
-                  const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                  if (fileNameMatch) {
-                    fileName = fileNameMatch[1].replace(/['"]/g, '');
-                  }
-                }
-                link.download = fileName;
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(blobUrl);
-              } catch (error) {
-                console.error('Error downloading file:', error);
-                // Fallback: open in new tab
-                window.open(proofUrl, '_blank');
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download
-          </button>
+
+        {/* Gallery Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {paymentProofs.map((proof, index) => {
+            const isImage = isImageFile(proof.url);
+            const isPdf = isPdfFile(proof.url);
+            const hasImageError = imageErrors.has(index);
+
+            return (
+              <div
+                key={index}
+                className="relative group cursor-pointer bg-gray-100 rounded-lg overflow-hidden border-2 border-transparent hover:border-indigo-400 transition-all duration-200 aspect-square"
+                onClick={() => handleImageClick(index)}
+              >
+                {isImage ? (
+                  <>
+                    {!hasImageError ? (
+                      <img
+                        src={proof.url}
+                        alt={`Payment proof ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={() => {
+                          setImageErrors(prev => new Set(prev).add(index));
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </>
+                ) : isPdf ? (
+                  <div className="w-full h-full flex items-center justify-center bg-red-50">
+                    <div className="text-center">
+                      <svg className="w-10 h-10 text-red-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-medium text-red-700">PDF</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Upload Date Badge */}
+                {proof.uploaded_at && (
+                  <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                    {formatDate(proof.uploaded_at)}
+                  </div>
+                )}
+
+                {/* Image Number Badge (if multiple) */}
+                {paymentProofs.length > 1 && (
+                  <div className="absolute top-1 right-1 bg-indigo-600 text-white text-xs font-semibold w-6 h-6 rounded-full flex items-center justify-center">
+                    {index + 1}
+                  </div>
+                )}
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Payment Proof Modal */}
-      {showModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4"
-          onClick={() => setShowModal(false)}
-        >
-          <div 
-            className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
-                Payment Proof - Registration ID: {regid}
-              </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-auto max-h-[calc(90vh-80px)] flex items-center justify-center bg-gray-50">
-              {isImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={proofUrl}
-                  alt="Payment Proof"
-                  className="max-w-full max-h-[calc(90vh-150px)] object-contain rounded-lg shadow-lg"
-                  onError={() => setError('Failed to load image')}
-                />
-              ) : isPdf ? (
-                <iframe
-                  src={proofUrl}
-                  className="w-full h-[calc(90vh-150px)] rounded-lg shadow-lg border border-gray-300"
-                  title="Payment Proof PDF"
-                />
-              ) : (
-                <div className="text-center p-8">
-                  <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(proofUrl, {
-                          mode: 'cors',
-                          credentials: 'omit',
-                        });
-                        
-                        if (!response.ok) {
-                          throw new Error('Failed to fetch file');
-                        }
-                        
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        
-                        const urlParts = proofUrl.split('/');
-                        const fileName = urlParts[urlParts.length - 1].split('?')[0];
-                        const extension = fileName.match(/\.\w+$/)?.[0] || '.pdf';
-                        link.download = `payment-proof-${regid}${extension}`;
-                        
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        window.URL.revokeObjectURL(url);
-                      } catch (error) {
-                        console.error('Error downloading file:', error);
-                        // Fallback: try using the download attribute
-                        const link = document.createElement('a');
-                        link.href = proofUrl;
-                        const urlParts = proofUrl.split('/');
-                        const fileName = urlParts[urlParts.length - 1].split('?')[0];
-                        link.download = fileName || `payment-proof-${regid}.pdf`;
-                        link.target = '_blank';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download File
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Image Viewer Modal */}
+      {viewerIndex !== null && (
+        <PaymentProofImageViewer
+          proofs={paymentProofs}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+          regid={regid}
+        />
       )}
     </>
   );
 }
-

@@ -30,6 +30,10 @@ export default function RegistrationList({
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
   const [viewLoadingIdentifier, setViewLoadingIdentifier] = useState<string | number | null>(null);
 
+  // Helper function to get consistent identifier for a registration
+  const getRegistrationIdentifier = useCallback((registration: Registration): string | number | null => {
+    return registration.batchnum ?? registration.regid ?? null;
+  }, []);
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -60,9 +64,33 @@ export default function RegistrationList({
     }
   }, [confcode, statusFilter, searchQuery, onRegistrationsChanged]);
 
+  // Track the last confcode that was used to fetch data
+  const lastConfcodeRef = useRef<string | null | undefined>(confcode);
+
+  // Initialize with server-side data on mount
   useEffect(() => {
-    fetchRegistrations();
-  }, [fetchRegistrations]);
+    // On mount, always use initialRegistrations from server
+    setRegistrations(initialRegistrations);
+    lastConfcodeRef.current = confcode;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Refetch when confcode changes (user selects different conference)
+  useEffect(() => {
+    if (confcode && confcode !== lastConfcodeRef.current) {
+      lastConfcodeRef.current = confcode;
+      fetchRegistrations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confcode]);
+
+  // Handle status and search filter changes
+  useEffect(() => {
+    if (confcode && (statusFilter !== 'all' || searchQuery)) {
+      fetchRegistrations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchQuery]);
 
 
   // Calculate pagination
@@ -141,27 +169,44 @@ export default function RegistrationList({
   };
 
   const handleViewDetails = async (registration: Registration) => {
+    const identifier = getRegistrationIdentifier(registration);
+    
+    if (!identifier) {
+      console.error('No identifier available for registration', registration);
+      alert('Cannot view details: Registration ID is missing');
+      return;
+    }
+
     try {
-      // Use batchnum if available, otherwise use regid for pending registrations
-      const identifier = registration.batchnum || registration.regid;
       setViewLoadingIdentifier(identifier);
       
-      // Use regid if batchnum is null, otherwise use batchnum
+      // Use batchnum if available, otherwise use regid for pending registrations
       const url = registration.batchnum 
         ? `/api/registrations/${registration.batchnum}`
-        : `/api/registrations/${encodeURIComponent(registration.regid)}`;
+        : `/api/registrations/${encodeURIComponent(registration.regid!)}`;
       
       const response = await fetch(url);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch registration details' }));
+        console.error('Error fetching registration details:', errorData.error || 'Unknown error', response.status);
+        alert(`Failed to load registration details: ${errorData.error || `HTTP ${response.status}`}`);
+        return;
+      }
+
       const data = await response.json();
       
-      if (response.ok) {
+      if (data.registration) {
         setRegistrationDetail(data.registration);
         setShowDetailModal(true);
+      } else {
+        console.error('No registration data in response', data);
+        alert('Failed to load registration details: No data received');
       }
     } catch (error) {
       console.error('Error fetching registration details:', error);
+      alert('Failed to load registration details. Please try again.');
     } finally {
-      const identifier = registration.batchnum || registration.regid;
       setViewLoadingIdentifier((cur) => (cur === identifier ? null : cur));
     }
   };
@@ -317,11 +362,11 @@ export default function RegistrationList({
                   <div className="mt-4 flex flex-col gap-2">
                     <button
                       onClick={() => handleViewDetails(registration)}
-                      disabled={viewLoadingIdentifier === (registration.batchnum || registration.regid)}
+                      disabled={viewLoadingIdentifier === getRegistrationIdentifier(registration)}
                       className="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="View Details"
                     >
-                      {viewLoadingIdentifier === (registration.batchnum || registration.regid) ? (
+                      {viewLoadingIdentifier === getRegistrationIdentifier(registration) ? (
                         <span className="inline-flex items-center gap-2">
                           <LoadingSpinner />
                           <span>Loading…</span>
@@ -455,11 +500,11 @@ export default function RegistrationList({
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleViewDetails(registration)}
-                            disabled={viewLoadingIdentifier === (registration.batchnum || registration.regid)}
+                            disabled={viewLoadingIdentifier === getRegistrationIdentifier(registration)}
                             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 hover:border-indigo-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="View Details"
                           >
-                            {viewLoadingIdentifier === (registration.batchnum || registration.regid) ? (
+                            {viewLoadingIdentifier === getRegistrationIdentifier(registration) ? (
                               <span className="inline-flex items-center gap-2">
                                 <LoadingSpinner />
                                 <span>Loading…</span>

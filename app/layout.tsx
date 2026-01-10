@@ -4,13 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Phalga Online Registration Admin",
   description: "Admin dashboard for registration management",
-  colorScheme: "light",
-  themeColor: "#ffffff",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  colorScheme: "light",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({

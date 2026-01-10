@@ -67,12 +67,18 @@ export default async function DashboardPage({
     
     if (conferences && conferences.length > 0) {
       confcode = conferences[0].confcode;
+      // Redirect to include confcode in URL if it wasn't there
+      const params = new URLSearchParams();
+      params.set('confcode', confcode);
+      if (status !== 'all') params.set('status', status);
+      if (search) params.set('search', search);
+      redirect(`/dashboard?${params.toString()}`);
     }
   }
   
   const registrations = await getRegistrations(status, search, confcode);
 
   return (
-    <RegistrationsPageClient initialRegistrations={registrations} />
+    <RegistrationsPageClient initialRegistrations={registrations} initialConfcode={confcode} />
   );
 }

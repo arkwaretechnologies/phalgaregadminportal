@@ -99,10 +99,22 @@ export default function DownloadParticipantsPage() {
       // Small delay to allow browser to handle first download
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Small delay to allow browser to handle first download
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Download registrations file (regH)
       await downloadFile(
         `/api/registrations/export${confcodeParam}`,
         `approved_participants_regH_${selectedConfcode}_${dateStr}.${ext}`
+      );
+
+      // Small delay to allow browser to handle second download
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Download dependents file (regdep)
+      await downloadFile(
+        `/api/dependents/export${confcodeParam}`,
+        `approved_participants_regdep_${selectedConfcode}_${dateStr}.${ext}`
       );
     } catch (err: any) {
       console.error('Download error:', err);
@@ -126,7 +138,7 @@ export default function DownloadParticipantsPage() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
               Download Participant List
             </h1>
-            <p className="text-gray-600 mt-1">Export all approved participants to CSV</p>
+            <p className="text-gray-600 mt-1">Export all approved participants to CSV or SQL</p>
           </div>
         </div>
       </div>
@@ -191,8 +203,8 @@ export default function DownloadParticipantsPage() {
           </h2>
           
           <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Select a conference above, then download two CSV files containing all approved registration data for that conference. 
-            The first file includes participant details, and the second file includes registration header information. Both files will be downloaded automatically.
+            Select a conference above, then download three CSV/SQL files containing all approved registration data for that conference. 
+            The first file includes participant details, the second file includes registration header information, and the third file includes dependent payment proofs. All three files will be downloaded automatically.
           </p>
 
           {error && (
@@ -311,6 +323,41 @@ export default function DownloadParticipantsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Payment Proof URL</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Approved Dependents CSV (approved_participants_regdep_*.csv)
+                </h3>
+                <ul className="space-y-2 text-gray-600 ml-7">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Registration ID (regid)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Conference Code (confcode)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Payment Proof URL (payment_proof_url)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Upload Timestamp (uploaded_at)</span>
                   </li>
                 </ul>
               </div>

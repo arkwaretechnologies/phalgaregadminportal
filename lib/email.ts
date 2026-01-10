@@ -104,7 +104,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                       <p style="margin: 0; font-size: 28px; font-weight: bold; color: #047857; letter-spacing: 1px;">Batch ${registration.batchnum}</p>
                     </div>` : ''}
                     <p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      We are pleased to confirm your participation. Please ensure you have submitted all required documents and payment proof as specified in the registration requirements.
+                      We are pleased to confirm your participation in ${escapeHtml(conferenceDisplayName)}. We look forward to welcoming you and hope you will have a valuable and enriching experience at the conference.
                     </p>`
                   : `<p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
                       We regret to inform you that your registration for ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">REJECTED</strong>.
@@ -154,9 +154,15 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                 </table>
               </div>
               
-              <p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                Please keep your Registration ID safe. You can use it to view your registration details at any time.
-              </p>
+              ${
+                status === 'APPROVED'
+                  ? `<p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+                      Please present either${registration.batchnum ? ` your Batch Number (Batch ${registration.batchnum})` : ' this Registration ID'} or this confirmation email to the registration area during the event for verification.
+                    </p>`
+                  : `<p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+                      Please keep your Registration ID safe. You can use it to view your registration details at any time.
+                    </p>`
+              }
               
               <!-- Action Button -->
               <div style="margin: 30px 0; text-align: center;">
@@ -165,10 +171,6 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                   View Registration Details
                 </a>
               </div>
-              
-              <p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                If you have any questions or need to make changes to your registration, please contact us using the information provided in your registration.
-              </p>
             </td>
           </tr>
           

@@ -109,12 +109,12 @@ export default function RegistrationDetailModal({
           <div className="p-4 sm:p-6">
             {/* Registration Information */}
             <div className="bg-gray-50 rounded-lg p-4 sm:p-6 mb-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
-                <div>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+                <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-gray-900">Registration Information</h3>
                   {currentRegistration.status === 'PENDING' && currentRegistration.regdate && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Time Left:</span>
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-gray-600 whitespace-nowrap">Time Left:</span>
                       <CountdownTimer
                         registrationDate={currentRegistration.regdate}
                         status={currentRegistration.status}
@@ -122,7 +122,9 @@ export default function RegistrationDetailModal({
                     </div>
                   )}
                 </div>
-                {getStatusBadge(currentRegistration.status)}
+                <div className="flex-shrink-0">
+                  {getStatusBadge(currentRegistration.status)}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

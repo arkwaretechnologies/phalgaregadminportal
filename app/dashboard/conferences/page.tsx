@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import ConferencesClient from './ConferencesClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,5 +14,6 @@ export default async function ConferencesPage() {
     redirect('/dashboard');
   }
 
-  return <ConferencesClient />;
+  // Redirect to Configuration page with conferences tab
+  redirect('/dashboard/configuration?tab=conferences');
 }

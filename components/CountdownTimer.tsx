@@ -66,7 +66,7 @@ export default function CountdownTimer({
 
   if (isExpired) {
     return (
-      <span className="text-sm font-semibold text-red-600 animate-pulse">
+      <span className="inline-block text-sm font-semibold text-red-600 whitespace-nowrap px-2 py-1">
         EXPIRED
       </span>
     );

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { RegistrationDetail } from '@/types';
 
-// Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
 
 export async function GET(
@@ -11,24 +9,21 @@ export async function GET(
   { params }: { params: { regnum: string } }
 ) {
   try {
-    // Check authentication and role
     await requireAuth(['admin', 'reviewer']);
 
     // Try both regid and batchnum lookups since regid can be numeric
-    // First try as regid (works for all registrations, including pending ones)
     const decodedRegnum = decodeURIComponent(params.regnum);
-    let registration = null;
-    let regError = null;
+    let regid: string | null = null;
 
     // First, try to find by regid (this works for both pending and approved)
     const { data: regById, error: errorById } = await supabase
       .from('regh')
-      .select('*')
+      .select('regid')
       .eq('regid', decodedRegnum)
       .maybeSingle();
 
-    if (!errorById && regById) {
-      registration = regById;
+    if (!errorById && regById?.regid) {
+      regid = regById.regid;
     } else {
       // If not found by regid and the param looks numeric, try batchnum
       const batchnum = parseInt(params.regnum);
@@ -37,50 +32,46 @@ export async function GET(
       if (isNumeric) {
         const { data: regByBatch, error: errorByBatch } = await supabase
           .from('regh')
-          .select('*')
+          .select('regid')
           .eq('batchnum', batchnum)
           .maybeSingle();
         
-        if (!errorByBatch && regByBatch) {
-          registration = regByBatch;
-        } else {
-          regError = errorByBatch;
+        if (!errorByBatch && regByBatch?.regid) {
+          regid = regByBatch.regid;
         }
-      } else {
-        regError = errorById;
       }
     }
 
-    if (regError || !registration) {
-      console.error('Registration not found:', {
+    if (!regid) {
+      console.error('Registration ID not found for payment proofs:', {
         regnum: params.regnum,
         decodedRegnum,
-        error: regError,
         triedRegid: true,
         triedBatchnum: /^\d+$/.test(params.regnum),
       });
+      return NextResponse.json({ error: 'Registration ID not found' }, { status: 404 });
+    }
+
+    const { data: paymentProofs, error } = await supabase
+      .from('regdep')
+      .select('payment_proof_url, uploaded_at')
+      .eq('regid', regid)
+      .order('uploaded_at', { ascending: true });
+
+    if (error) {
+      console.error('Database error fetching payment proofs:', error);
       return NextResponse.json(
-        { error: 'Registration not found' },
-        { status: 404 }
+        { error: 'Failed to fetch payment proofs' },
+        { status: 500 }
       );
     }
 
-    // Fetch registration details (from regd table if exists)
-    // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
-    const { data: regd, error: regdError } = registration.regid
-      ? await supabase
-          .from('regd')
-          .select('*')
-          .eq('regid', registration.regid)
-          .order('linenum', { ascending: true })
-      : { data: [], error: null };
+    const formattedProofs = (paymentProofs || []).map(proof => ({
+      url: proof.payment_proof_url,
+      uploaded_at: proof.uploaded_at,
+    }));
 
-    const registrationDetail: RegistrationDetail = {
-      ...registration,
-      regd: regd || undefined,
-    };
-
-    return NextResponse.json({ registration: registrationDetail });
+    return NextResponse.json({ paymentProofs: formattedProofs });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -88,12 +79,10 @@ export async function GET(
     if (error.message === 'Forbidden') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    console.error('Registration detail fetch error:', error);
+    console.error('Payment proofs API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
-

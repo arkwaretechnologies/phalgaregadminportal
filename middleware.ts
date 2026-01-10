@@ -47,7 +47,8 @@ export async function middleware(request: NextRequest) {
       // Check role-based access for admin routes
       if (
         (pathname.startsWith('/dashboard/users') || 
-         pathname.startsWith('/dashboard/conferences')) &&
+         pathname.startsWith('/dashboard/conferences') ||
+         pathname.startsWith('/dashboard/configuration')) &&
         payload.role !== 'admin'
       ) {
         const url = request.nextUrl.clone();
@@ -84,7 +85,8 @@ export async function middleware(request: NextRequest) {
       // Check role-based access for admin-only API routes
       // Note: /api/conferences GET allows reviewers, only POST/PUT/DELETE are admin-only (handled in API route)
       if (
-        pathname.startsWith('/api/users') &&
+        (pathname.startsWith('/api/users') ||
+         pathname.startsWith('/api/positions')) &&
         payload.role !== 'admin'
       ) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

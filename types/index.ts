@@ -54,3 +54,10 @@ export interface Conference {
   reg_limit: number | null;
   domain: string | null;
 }
+
+export interface Position {
+  position_id: number;
+  name: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
