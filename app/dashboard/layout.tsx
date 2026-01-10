@@ -509,11 +509,18 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main
-        className={`transition-all duration-300 ease-in-out px-4 py-4 sm:px-6 sm:py-6 lg:p-8 pt-20 lg:pt-8 bg-gray-50 text-gray-900 ${
+        className={`flex flex-col transition-all duration-300 ease-in-out px-4 py-4 sm:px-6 sm:py-6 lg:p-8 pt-20 lg:pt-8 bg-gray-50 text-gray-900 min-h-screen ${
           sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
         }`}
       >
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+        <footer className="mt-8 py-4 border-t border-gray-100 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">
+            Powered by ARKWARE TECHNOLOGIES
+          </p>
+        </footer>
       </main>
     </div>
   );

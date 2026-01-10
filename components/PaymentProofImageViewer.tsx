@@ -24,15 +24,43 @@ export default function PaymentProofImageViewer({
   regid,
 }: PaymentProofImageViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [rotation, setRotation] = useState(0);
+  const [scale, setScale] = useState(1);
   const currentProof = proofs[currentIndex];
+
+  const handleRotate = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    // Only zoom if Ctrl is pressed or just scroll? 
+    // Usually in image viewers, scroll zooms. 
+    // To prevent page scroll, we should preventDefault if we can, 
+    // but React synthetic wheel events might not always allow it easily depending on passive listeners.
+    // However, since this is a fixed overlay, scroll usually shouldn't scroll the background if handled correctly.
+    
+    const delta = e.deltaY;
+    setScale((prevScale) => {
+      const zoomSpeed = 0.1;
+      const newScale = delta > 0 ? prevScale - zoomSpeed : prevScale + zoomSpeed;
+      return Math.min(Math.max(newScale, 0.5), 5); // Limit zoom between 0.5x and 5x
+    });
+  }, []);
+
+  const resetView = useCallback(() => {
+    setRotation(0);
+    setScale(1);
+  }, []);
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % proofs.length);
-  }, [proofs.length]);
+    resetView();
+  }, [proofs.length, resetView]);
 
   const goToPrevious = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex - 1 + proofs.length) % proofs.length);
-  }, [proofs.length]);
+    resetView();
+  }, [proofs.length, resetView]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -42,9 +70,11 @@ export default function PaymentProofImageViewer({
         goToPrevious();
       } else if (e.key === 'Escape') {
         onClose();
+      } else if (e.key.toLowerCase() === 'r') {
+        handleRotate();
       }
     },
-    [goToNext, goToPrevious, onClose]
+    [goToNext, goToPrevious, onClose, handleRotate]
   );
 
   useEffect(() => {
@@ -131,17 +161,21 @@ export default function PaymentProofImageViewer({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 bg-gray-100 relative overflow-hidden min-h-0 max-h-[calc(95vh-180px)]">
+        <div 
+          className="flex-1 flex items-center justify-center p-4 sm:p-6 bg-gray-100 relative overflow-hidden min-h-0 max-h-[calc(95vh-180px)]"
+          onWheel={handleWheel}
+        >
           {isImageFile(currentProof.url) ? (
-            <div className="relative w-full h-full flex items-center justify-center min-h-0 overflow-auto">
+            <div className="relative w-full h-full flex items-center justify-center min-h-0 overflow-visible cursor-zoom-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentProof.url}
                 alt={`Payment Proof ${currentIndex + 1}`}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-md transition-transform duration-200 ease-out origin-center"
                 style={{ 
                   maxHeight: 'calc(95vh - 280px)',
-                  maxWidth: '100%'
+                  maxWidth: '100%',
+                  transform: `rotate(${rotation}deg) scale(${scale})`
                 }}
                 onError={(e) => {
                   console.error('Error loading image:', currentProof.url);
@@ -258,18 +292,51 @@ export default function PaymentProofImageViewer({
           {/* Footer Content */}
           <div className="flex items-center justify-between p-3 sm:p-4 text-sm text-gray-600 bg-gray-50">
             <p className="truncate mr-4">Uploaded: {formatDate(currentProof.uploaded_at)}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownload();
-              }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-100 hover:bg-indigo-200 rounded-md transition-colors flex-shrink-0"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download
-            </button>
+            <div className="flex items-center gap-2">
+              {isImageFile(currentProof.url) && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resetView();
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors flex-shrink-0"
+                    title="Reset View"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16v16H4V4z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8m-4-4v8" />
+                    </svg>
+                    Reset
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRotate();
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-100 hover:bg-indigo-200 rounded-md transition-colors flex-shrink-0"
+                    title="Rotate Image (R)"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Rotate
+                  </button>
+                </>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload();
+                }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </button>
+            </div>
           </div>
         </div>
       </div>

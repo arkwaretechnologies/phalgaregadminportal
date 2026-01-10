@@ -3,7 +3,9 @@ import { Registration } from '@/types';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@phalga.org';
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+// Remove trailing slash if present to avoid double slashes in image paths
+const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const appUrl = rawAppUrl.replace(/\/$/, '');
 const registrationPortalUrl = 'https://registration.phalga.org';
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -83,9 +85,23 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">${escapeHtml(conferenceDisplayName)}</h1>
-              <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">Registration ${status === 'APPROVED' ? 'Confirmed' : status}</p>
+            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="80" align="left">
+                    <img src="${appUrl}/left.png" alt="PHALGA Logo" width="80" style="display: block; border: 0;">
+                  </td>
+                  <td align="center" style="padding: 0 10px;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold; line-height: 1.2;">${escapeHtml(conferenceDisplayName)}</h1>
+                    <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 18px; font-weight: 500; opacity: 0.9;">
+                      Registration ${status === 'APPROVED' ? 'Confirmed' : (status === 'REJECTED' ? 'Rejected' : status)}
+                    </p>
+                  </td>
+                  <td width="80" align="right">
+                    <img src="${appUrl}/right.png" alt="Conference Logo" width="80" style="display: block; border: 0;">
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           

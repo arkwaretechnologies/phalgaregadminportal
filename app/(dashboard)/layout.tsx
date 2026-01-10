@@ -113,8 +113,15 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 p-8">
-        {children}
+      <main className="flex flex-col ml-64 p-8 min-h-screen">
+        <div className="flex-1">
+          {children}
+        </div>
+        <footer className="mt-8 py-4 border-t border-gray-100 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">
+            Powered by ARKWARE TECHNOLOGIES
+          </p>
+        </footer>
       </main>
     </div>
   );
