@@ -110,28 +110,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getNextBatchNumber(_confcode: string): Promise<number> {
-  // Get the highest batch number GLOBALLY (the unique constraint is on batchnum alone, not per-conference)
-  // This prevents unique constraint violations across all conferences
+async function getNextBatchNumber(confcode: string): Promise<number> {
+  // Get the highest batch number for THIS conference
+  // Each conference has its own batch number sequence (1, 2, 3...)
   const { data, error } = await supabase
     .from('regh')
     .select('batchnum')
+    .eq('confcode', confcode)
     .not('batchnum', 'is', null)
     .order('batchnum', { ascending: false })
     .limit(1);
 
   if (error) {
     console.error('Error fetching max batch number:', error);
-    // If error, try to get a safe number by counting
-    const { count } = await supabase
-      .from('regh')
-      .select('*', { count: 'exact', head: true })
-      .not('batchnum', 'is', null);
-    return (count || 0) + 1;
+    return 1;
   }
 
   if (!data || data.length === 0 || !data[0]?.batchnum) {
-    // No registrations with batch numbers yet, start at 1
+    // No registrations with batch numbers for this conference yet, start at 1
     return 1;
   }
 

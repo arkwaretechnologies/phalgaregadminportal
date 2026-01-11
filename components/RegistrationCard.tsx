@@ -89,10 +89,8 @@ export default function RegistrationCard({
         <div className="flex gap-2">
           <button
             onClick={() => {
-              const identifier = registration.batchnum || registration.regid;
-              router.push(registration.batchnum 
-                ? `/dashboard/registrations/${registration.batchnum}`
-                : `/dashboard/registrations/${encodeURIComponent(registration.regid)}`);
+              // Always use regid - batchnum is no longer globally unique (per-conference)
+              router.push(`/dashboard/registrations/${encodeURIComponent(registration.regid)}`);
             }}
             className="flex-1 px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
           >

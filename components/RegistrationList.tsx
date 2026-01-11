@@ -181,9 +181,8 @@ export default function RegistrationList({
       setViewLoadingIdentifier(identifier);
       
       // Use batchnum if available, otherwise use regid for pending registrations
-      const url = registration.batchnum 
-        ? `/api/registrations/${registration.batchnum}`
-        : `/api/registrations/${encodeURIComponent(registration.regid!)}`;
+      // Always use regid for fetching - batchnum is no longer globally unique (per-conference)
+      const url = `/api/registrations/${encodeURIComponent(registration.regid!)}`;
       
       const response = await fetch(url);
       

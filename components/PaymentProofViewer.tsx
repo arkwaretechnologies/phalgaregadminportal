@@ -24,10 +24,8 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
     setLoading(true);
     setError(null);
     try {
-      const identifier = batchnum || regid;
-      const url = batchnum 
-        ? `/api/registrations/${batchnum}/payment-proofs`
-        : `/api/registrations/${encodeURIComponent(regid)}/payment-proofs`;
+      // Always use regid - batchnum is no longer globally unique (per-conference)
+      const url = `/api/registrations/${encodeURIComponent(regid)}/payment-proofs`;
       
       const response = await fetch(url);
       const data = await response.json();

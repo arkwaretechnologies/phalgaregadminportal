@@ -62,10 +62,8 @@ export default function RegistrationDetailModal({
     
     // Fetch updated registration details
     try {
-      const identifier = registration.batchnum || registration.regid;
-      const url = registration.batchnum 
-        ? `/api/registrations/${registration.batchnum}`
-        : `/api/registrations/${encodeURIComponent(registration.regid)}`;
+      // Always use regid - batchnum is no longer globally unique (per-conference)
+      const url = `/api/registrations/${encodeURIComponent(registration.regid)}`;
       const response = await fetch(url);
       const data = await response.json();
       
