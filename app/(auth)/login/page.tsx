@@ -238,7 +238,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="mt-8 text-center animate-fade-in-up animation-delay-500">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">
-            Powered by ARKWARE TECHNOLOGIES
+            {'\u00A9'} {new Date().getFullYear()} ARKWARE TECHNOLOGIES
           </p>
         </div>
       </div>

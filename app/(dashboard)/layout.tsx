@@ -119,7 +119,7 @@ export default function DashboardLayout({
         </div>
         <footer className="mt-8 py-4 border-t border-gray-100 text-center">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">
-            Powered by ARKWARE TECHNOLOGIES
+            {'\u00A9'} {new Date().getFullYear()} ARKWARE TECHNOLOGIES
           </p>
         </footer>
       </main>

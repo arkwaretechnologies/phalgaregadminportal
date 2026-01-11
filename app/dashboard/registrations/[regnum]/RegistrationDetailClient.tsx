@@ -31,7 +31,7 @@ export default function RegistrationDetailClient({
       case 'REJECTED':
         return (
           <span className="px-3 py-1 text-sm font-semibold rounded-full bg-red-100 text-red-800">
-            REJECTED
+            UNSUCCESSFUL
           </span>
         );
       default:
