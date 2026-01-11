@@ -110,25 +110,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getNextBatchNumber(confcode: string): Promise<number> {
-  // Get the highest batch number for this conference where status is APPROVED
+async function getNextBatchNumber(_confcode: string): Promise<number> {
+  // Get the highest batch number GLOBALLY (the unique constraint is on batchnum alone, not per-conference)
+  // This prevents unique constraint violations across all conferences
   const { data, error } = await supabase
     .from('regh')
     .select('batchnum')
-    .eq('confcode', confcode)
-    .eq('status', 'APPROVED')
     .not('batchnum', 'is', null)
     .order('batchnum', { ascending: false })
     .limit(1);
 
   if (error) {
     console.error('Error fetching max batch number:', error);
-    // If error, start at 1
-    return 1;
+    // If error, try to get a safe number by counting
+    const { count } = await supabase
+      .from('regh')
+      .select('*', { count: 'exact', head: true })
+      .not('batchnum', 'is', null);
+    return (count || 0) + 1;
   }
 
   if (!data || data.length === 0 || !data[0]?.batchnum) {
-    // No approved registrations for this conference yet, start at 1
+    // No registrations with batch numbers yet, start at 1
     return 1;
   }
 
@@ -221,14 +224,9 @@ export async function POST(request: NextRequest) {
       // Only generate batch number if not already set
       if (!existingRegs.batchnum) {
         if (existingRegs.confcode) {
-          try {
-            const nextBatchNum = await getNextBatchNumber(existingRegs.confcode);
-            updateData.batchnum = nextBatchNum;
-          } catch (err) {
-            console.error('Error generating batch number:', err);
-            // Continue without batch number if generation fails
-            // The registration will still be approved but without a batch number
-          }
+          // Will be generated with retry logic below
+          updateData._needsBatchNum = true;
+          updateData._confcode = existingRegs.confcode;
         } else {
           console.warn('Cannot generate batch number: registration has no confcode');
           // Continue without batch number
@@ -267,13 +265,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build the update query
-    const updateQuery = supabase
-      .from('regh')
-      .update(updateData)
-      .eq(updateIdentifier.field, updateIdentifier.value);
+    // Handle batch number generation with retry logic for race conditions
+    const needsBatchNum = updateData._needsBatchNum;
+    const confcodeForBatch = updateData._confcode;
+    delete updateData._needsBatchNum;
+    delete updateData._confcode;
 
-    const { data, error } = await updateQuery.select();
+    let data: any[] | null = null;
+    let error: any = null;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // Generate batch number if needed
+      if (needsBatchNum && confcodeForBatch) {
+        try {
+          const nextBatchNum = await getNextBatchNumber(confcodeForBatch);
+          updateData.batchnum = nextBatchNum;
+        } catch (err) {
+          console.error('Error generating batch number:', err);
+        }
+      }
+
+      // Build the update query
+      const updateQuery = supabase
+        .from('regh')
+        .update(updateData)
+        .eq(updateIdentifier.field, updateIdentifier.value);
+
+      const result = await updateQuery.select();
+      data = result.data;
+      error = result.error;
+
+      // Check for unique constraint violation (code 23505)
+      if (error && error.code === '23505') {
+        console.warn(`Batch number conflict (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+
+      // No error or different error - exit retry loop
+      break;
+    }
 
     if (error) {
       console.error('Database error:', error);
@@ -283,8 +316,7 @@ export async function POST(request: NextRequest) {
       console.error('Existing registration:', JSON.stringify(existingRegs, null, 2));
       return NextResponse.json(
         { 
-          error: 'Failed to update registration',
-          details: error.message || 'Unknown database error',
+          error: 'Failed to update registration: ' + (error.message || 'Unknown database error'),
           code: error.code,
           hint: error.hint || null
         },
