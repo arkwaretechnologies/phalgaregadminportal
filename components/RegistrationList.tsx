@@ -137,7 +137,7 @@ export default function RegistrationList({
       case 'REJECTED':
         return (
           <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-            REJECTED
+            UNSUCCESSFUL
           </span>
         );
       default:
@@ -278,7 +278,7 @@ export default function RegistrationList({
                     <option value="all">All Registrations</option>
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
+                    <option value="REJECTED">Unsuccessful</option>
                   </select>
                 </div>
               </div>

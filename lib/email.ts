@@ -94,7 +94,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                   <td align="center" style="padding: 0 10px;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold; line-height: 1.2;">${escapeHtml(conferenceDisplayName)}</h1>
                     <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 18px; font-weight: 500; opacity: 0.9;">
-                      Registration ${status === 'APPROVED' ? 'Confirmed' : (status === 'REJECTED' ? 'Rejected' : status)}
+                      Registration ${status === 'APPROVED' ? 'Confirmed' : (status === 'REJECTED' ? 'Unsuccessful' : status)}
                     </p>
                   </td>
                   <td width="80" align="right">
@@ -113,25 +113,20 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
               ${
                 status === 'APPROVED'
                   ? `<p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      Congratulations! Your registration for ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">CONFIRMED</strong>.
+                      Congratulations! Your registration for the ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">CONFIRMED</strong>.
                     </p>
                     ${registration.batchnum ? `<div style="margin: 0 0 30px 0; padding: 20px; background-color: #f0fdf4; border-left: 4px solid ${statusColor}; border-radius: 4px;">
                       <p style="margin: 0 0 8px 0; font-size: 12px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px;">Batch Number</p>
                       <p style="margin: 0; font-size: 28px; font-weight: bold; color: #047857; letter-spacing: 1px;">Batch ${registration.batchnum}</p>
-                    </div>` : ''}
-                    <p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      We are pleased to confirm your participation in ${escapeHtml(conferenceDisplayName)}. We look forward to welcoming you and hope you will have a valuable and enriching experience at the conference.
-                    </p>`
+                    </div>` : ''}`
                   : `<p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      We regret to inform you that your registration for ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">REJECTED</strong>.
+                      We regret to inform you that your registration for the ${escapeHtml(conferenceDisplayName)} has been <strong style="color: ${statusColor};">UNSUCCESSFUL</strong>.
                     </p>
                     ${remarks ? `<div style="margin: 0 0 30px 0; padding: 20px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
                       <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #92400e;">Reason for Rejection:</p>
                       <p style="margin: 0; font-size: 14px; color: #78350f; line-height: 1.6;">${escapedRemarks}</p>
                     </div>` : ''}
-                    <p style="margin: 0 0 30px 0; font-size: 16px; color: #333333; line-height: 1.6;">
-                      If you believe this is an error or have any questions, please contact us using the information provided in your registration.
-                    </p>`
+                    `
               }
               
               <!-- Registration ID Box -->
@@ -163,7 +158,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280;">Status</td>
                     <td style="padding: 10px 0;">
                       <span style="display: inline-block; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 20px; ${statusBadgeStyle}">
-                        ${status === 'APPROVED' ? 'CONFIRMED' : status}
+                        ${status === 'APPROVED' ? 'CONFIRMED' : 'UNSUCCESSFUL'}
                       </span>
                     </td>
                   </tr>
@@ -173,11 +168,9 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
               ${
                 status === 'APPROVED'
                   ? `<p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                      Please present either${registration.batchnum ? ` your Batch Number (Batch ${registration.batchnum})` : ' this Registration ID'} or this confirmation email to the registration area during the event for verification.
+                      Please present ${registration.batchnum ? ` your Batch Number (Batch ${registration.batchnum})` : ' this Registration ID'} to claim your conference kits.
                     </p>`
-                  : `<p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                      Please keep your Registration ID safe. You can use it to view your registration details at any time.
-                    </p>`
+                  : ``
               }
               
               <!-- Action Button -->
@@ -191,7 +184,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
               ${status === 'APPROVED' ? `
               <!-- QR Code Section -->
               <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb; border-radius: 8px; text-align: center;">
-                <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #374151;">Scan QR Code for Quick Verification</p>
+                
                 <img 
                   src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(registration.regid)}" 
                   alt="Registration QR Code" 
@@ -255,7 +248,7 @@ export async function sendStatusUpdateEmail(data: StatusUpdateEmailData): Promis
   try {
     const subject = data.status === 'APPROVED' 
       ? `Registration Confirmed - ${registration.regid}`
-      : `Registration Rejected - ${registration.regid}`;
+      : `Registration Unsuccessful - ${registration.regid}`;
 
     console.log('[EMAIL] Email subject:', subject);
     console.log('[EMAIL] Sending to:', registration.email);
