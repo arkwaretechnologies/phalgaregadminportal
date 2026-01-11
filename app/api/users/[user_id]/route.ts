@@ -23,7 +23,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { fullname, role, password } = body;
+    const { fullname, role, password, assigned_conferences, default_conference } = body;
 
     // Build update object
     const updateData: any = {
@@ -54,12 +54,17 @@ export async function PUT(
       updateData.password_hash = await hashPassword(password);
     }
 
+    // Handle default_conference - can be set to null or a valid confcode
+    if (default_conference !== undefined) {
+      updateData.default_conference = default_conference || null;
+    }
+
     // Update user
     const { data: user, error } = await supabase
       .from('users')
       .update(updateData)
       .eq('user_id', user_id)
-      .select('user_id, username, fullname, role, created_at, updated_at')
+      .select('user_id, username, fullname, role, default_conference, created_at, updated_at')
       .single();
 
     if (error) {
@@ -74,7 +79,45 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    // Handle conference assignments for reviewers
+    const finalRole = role || user.role;
+    if (Array.isArray(assigned_conferences)) {
+      // Delete existing assignments
+      await supabase
+        .from('user_conferences')
+        .delete()
+        .eq('user_id', user_id);
+
+      // If reviewer role and has conferences to assign
+      if (finalRole === 'reviewer' && assigned_conferences.length > 0) {
+        const conferenceAssignments = assigned_conferences.map((confcode: string) => ({
+          user_id: user_id,
+          confcode,
+        }));
+
+        const { error: assignError } = await supabase
+          .from('user_conferences')
+          .insert(conferenceAssignments);
+
+        if (assignError) {
+          console.error('Error assigning conferences:', assignError);
+        }
+      }
+    }
+
+    // Fetch current assignments to return
+    let currentAssignments: string[] = [];
+    if (finalRole === 'reviewer') {
+      const { data: assignments } = await supabase
+        .from('user_conferences')
+        .select('confcode')
+        .eq('user_id', user_id);
+      currentAssignments = (assignments || []).map((a: { confcode: string }) => a.confcode);
+    }
+
+    return NextResponse.json({ 
+      user: { ...user, assigned_conferences: currentAssignments, default_conference: user.default_conference } 
+    });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -8,8 +8,50 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     // Check authentication - allow admin and reviewer to view conferences
-    await requireAuth(['admin', 'reviewer']);
+    const user = await requireAuth(['admin', 'reviewer']);
 
+    // For reviewers, only return assigned conferences
+    if (user.role === 'reviewer') {
+      // First get assigned conference codes
+      const { data: assignments, error: assignError } = await supabase
+        .from('user_conferences')
+        .select('confcode')
+        .eq('user_id', user.user_id);
+
+      if (assignError) {
+        console.error('Database error fetching assignments:', assignError);
+        return NextResponse.json(
+          { error: 'Failed to fetch conference assignments' },
+          { status: 500 }
+        );
+      }
+
+      const assignedCodes = (assignments || []).map((a: { confcode: string }) => a.confcode);
+
+      // If no assignments, return empty array
+      if (assignedCodes.length === 0) {
+        return NextResponse.json({ conferences: [] });
+      }
+
+      // Fetch only assigned conferences
+      const { data: conferences, error } = await supabase
+        .from('conference')
+        .select('*')
+        .in('confcode', assignedCodes)
+        .order('confcode', { ascending: true });
+
+      if (error) {
+        console.error('Database error:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch conferences' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ conferences: conferences || [] });
+    }
+
+    // For admin, return all conferences
     const { data: conferences, error } = await supabase
       .from('conference')
       .select('*')

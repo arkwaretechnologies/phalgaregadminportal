@@ -14,12 +14,16 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
   const [loading, setLoading] = useState(true);
 
   const fetchSlots = useCallback(async () => {
+    // Don't fetch without a confcode - wait until we have one
+    if (!confcode) {
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (confcode) {
-        params.append('confcode', confcode);
-      }
+      params.append('confcode', confcode);
       const res = await fetch(`/api/slots?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (res.ok) {
@@ -36,7 +40,7 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
     }
   }, [confcode]);
 
-  // Trigger refresh on mount + when nonce or confcode changes
+  // Trigger refresh on mount + when confcode changes
   // (nonce comes from actions like approve/reject).
   useEffect(() => {
     fetchSlots();
@@ -80,15 +84,11 @@ export default function RegistrationsPageClient({
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
-  const [selectedConfcode, setSelectedConfcode] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('confcode') || initialConfcode || null;
-    }
-    return initialConfcode || null;
-  });
+  // Always start with initialConfcode from server - this is the source of truth
+  const [selectedConfcode, setSelectedConfcode] = useState<string | null>(initialConfcode || null);
   const [loadingConferences, setLoadingConferences] = useState(true);
-
+  
+  // Fetch conferences on mount
   useEffect(() => {
     const fetchConferences = async () => {
       try {
@@ -98,20 +98,22 @@ export default function RegistrationsPageClient({
           const fetchedConferences = data.conferences || [];
           setConferences(fetchedConferences);
           
-          // Sync selectedConfcode from URL if it exists, or use initialConfcode from server
-          if (typeof window !== 'undefined') {
+          // Only set default if we don't have a confcode yet
+          if (typeof window !== 'undefined' && fetchedConferences.length > 0) {
             const params = new URLSearchParams(window.location.search);
             const urlConfcode = params.get('confcode');
+            const currentConfcode = urlConfcode || initialConfcode;
             
-            if (urlConfcode && urlConfcode !== selectedConfcode) {
-              setSelectedConfcode(urlConfcode);
-            } else if (!urlConfcode && fetchedConferences.length > 0) {
-              // No confcode in URL - use initialConfcode if available, otherwise default to first
-              const confcodeToUse = initialConfcode || fetchedConferences[0].confcode;
+            if (!currentConfcode) {
+              // No confcode set - default to first available
+              const confcodeToUse = fetchedConferences[0].confcode;
               setSelectedConfcode(confcodeToUse);
               const url = new URL(window.location.href);
               url.searchParams.set('confcode', confcodeToUse);
               window.history.replaceState({}, '', url.toString());
+            } else if (urlConfcode && urlConfcode !== initialConfcode) {
+              // URL has different confcode than initial - sync state
+              setSelectedConfcode(urlConfcode);
             }
           }
         }

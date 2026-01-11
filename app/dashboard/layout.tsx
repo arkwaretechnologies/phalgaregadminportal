@@ -74,7 +74,8 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      // Use full page navigation to clear all cached state
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -220,6 +221,16 @@ export default function DashboardLayout({
                       }`}
                     >
                       <span className="text-sm">All Approved Participants</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/reports/rejected"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/rejected'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">All Rejected Registrations</span>
                     </Link>
                     <Link
                       href="/dashboard/reports/batches"
@@ -416,6 +427,17 @@ export default function DashboardLayout({
                     title="All Approved Participants"
                   >
                     <span className="text-sm">All Approved Participants</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/rejected"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/rejected'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="All Rejected Registrations"
+                  >
+                    <span className="text-sm">All Rejected Registrations</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/batches"

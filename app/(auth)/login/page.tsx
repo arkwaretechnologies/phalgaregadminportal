@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -49,8 +47,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect to dashboard with full page reload to ensure fresh user data
+      window.location.href = '/dashboard';
     } catch (err) {
       setError('An error occurred. Please try again.');
       setLoading(false);

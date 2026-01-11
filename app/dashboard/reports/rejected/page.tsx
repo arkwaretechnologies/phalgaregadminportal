@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Conference, User } from '@/types';
-import ApprovedParticipantsClient from './ApprovedParticipantsClient';
+import RejectedParticipantsClient from './RejectedParticipantsClient';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -73,7 +73,7 @@ async function getUserDefaultConference(userId: number): Promise<string | null> 
   }
 }
 
-export default async function ApprovedParticipantsPage({
+export default async function RejectedParticipantsPage({
   searchParams,
 }: {
   searchParams?: { confcode?: string };
@@ -99,7 +99,7 @@ export default async function ApprovedParticipantsPage({
   }
 
   return (
-    <ApprovedParticipantsClient
+    <RejectedParticipantsClient
       initialConferences={conferences}
       initialConfcode={confcode}
     />

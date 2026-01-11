@@ -1,11 +1,32 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { Registration } from '@/types';
+import { Registration, User } from '@/types';
 import RegistrationsPageClient from '@/components/RegistrationsPageClient';
 
 // Force dynamic rendering - this page requires authentication and database access
 export const dynamic = 'force-dynamic';
+
+// Get conferences available to the user (filtered for reviewers)
+async function getAvailableConferences(user: User): Promise<string[]> {
+  if (user.role === 'reviewer') {
+    // Get assigned conference codes for reviewer
+    const { data: assignments } = await supabase
+      .from('user_conferences')
+      .select('confcode')
+      .eq('user_id', user.user_id);
+    
+    return (assignments || []).map((a: { confcode: string }) => a.confcode);
+  }
+  
+  // Admin can see all conferences
+  const { data: conferences } = await supabase
+    .from('conference')
+    .select('confcode')
+    .order('confcode', { ascending: true });
+  
+  return (conferences || []).map((c: { confcode: string }) => c.confcode);
+}
 
 async function getRegistrations(status: string = 'all', search: string = '', confcode: string | null = null): Promise<Registration[]> {
   try {
@@ -85,49 +106,50 @@ export default async function DashboardPage({
   const search = searchParams?.search || '';
   let confcode = searchParams?.confcode || null;
   
-  // If no confcode is provided, use the default from config or fall back to first conference
+  // Get conferences available to this user
+  const availableConferences = await getAvailableConferences(user);
+  
+  // Get user's personal default conference from database
+  const { data: userData } = await supabase
+    .from('users')
+    .select('default_conference')
+    .eq('user_id', user.user_id)
+    .single();
+  
+  const userDefaultConf = userData?.default_conference || null;
+  
+  // If no confcode is provided, use the user's default or fall back to first available conference
   if (!confcode) {
-    // First, check for default conference in config
-    const { data: configData } = await supabase
-      .from('config')
-      .select('paramvalue')
-      .eq('paramname', 'DEFAULT_CONFERENCE')
-      .maybeSingle();
-    
-    const defaultConfcode = configData?.paramvalue || null;
-    
-    if (defaultConfcode) {
-      // Verify this conference still exists
-      const { data: confExists } = await supabase
-        .from('conference')
-        .select('confcode')
-        .eq('confcode', defaultConfcode)
-        .maybeSingle();
-      
-      if (confExists) {
-        const params = new URLSearchParams();
-        params.set('confcode', defaultConfcode);
-        if (status !== 'all') params.set('status', status);
-        if (search) params.set('search', search);
-        redirect(`/dashboard?${params.toString()}`);
-      }
+    // Use user's personal default if it's in their available conferences
+    if (userDefaultConf && availableConferences.includes(userDefaultConf)) {
+      const params = new URLSearchParams();
+      params.set('confcode', userDefaultConf);
+      if (status !== 'all') params.set('status', status);
+      if (search) params.set('search', search);
+      redirect(`/dashboard?${params.toString()}`);
     }
     
-    // Fall back to first conference if no valid default
-    const { data: conferences } = await supabase
-      .from('conference')
-      .select('confcode')
-      .order('confcode', { ascending: true })
-      .limit(1);
-    
-    const firstConf = conferences && conferences.length > 0 ? conferences[0].confcode : null;
-    if (firstConf && typeof firstConf === 'string') {
-      // Redirect to include confcode in URL if it wasn't there
+    // Fall back to first available conference for this user
+    const firstConf = availableConferences.length > 0 ? availableConferences[0] : null;
+    if (firstConf) {
       const params = new URLSearchParams();
       params.set('confcode', firstConf);
       if (status !== 'all') params.set('status', status);
       if (search) params.set('search', search);
       redirect(`/dashboard?${params.toString()}`);
+    }
+  } else {
+    // Verify the provided confcode is available to this user
+    if (!availableConferences.includes(confcode)) {
+      // Redirect to first available conference
+      const firstConf = availableConferences.length > 0 ? availableConferences[0] : null;
+      if (firstConf) {
+        const params = new URLSearchParams();
+        params.set('confcode', firstConf);
+        if (status !== 'all') params.set('status', status);
+        if (search) params.set('search', search);
+        redirect(`/dashboard?${params.toString()}`);
+      }
     }
   }
   

@@ -45,7 +45,7 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
     } finally {
       setLoading(false);
     }
-  }, [batchnum, regid]);
+  }, [regid]);
 
   useEffect(() => {
     fetchPaymentProofs();

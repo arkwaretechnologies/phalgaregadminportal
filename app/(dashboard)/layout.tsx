@@ -46,7 +46,8 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
+      // Use full page navigation to clear all cached state
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
     }

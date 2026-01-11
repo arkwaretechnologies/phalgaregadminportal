@@ -1,14 +1,48 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { Conference } from '@/types';
+import { Conference, User } from '@/types';
 import BatchesReportClient from './BatchesReportClient';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-async function getConferences(): Promise<Conference[]> {
+async function getConferences(user: User): Promise<Conference[]> {
   try {
+    // For reviewers, only return assigned conferences
+    if (user.role === 'reviewer') {
+      // First get assigned conference codes
+      const { data: assignments, error: assignError } = await supabase
+        .from('user_conferences')
+        .select('confcode')
+        .eq('user_id', user.user_id);
+
+      if (assignError) {
+        console.error('Error fetching assignments:', assignError);
+        return [];
+      }
+
+      const assignedCodes = (assignments || []).map((a: { confcode: string }) => a.confcode);
+
+      if (assignedCodes.length === 0) {
+        return [];
+      }
+
+      const { data: conferences, error } = await supabase
+        .from('conference')
+        .select('*')
+        .in('confcode', assignedCodes)
+        .order('confcode', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching conferences:', error);
+        return [];
+      }
+
+      return conferences || [];
+    }
+
+    // For admin, return all conferences
     const { data: conferences, error } = await supabase
       .from('conference')
       .select('*')
@@ -26,14 +60,14 @@ async function getConferences(): Promise<Conference[]> {
   }
 }
 
-async function getDefaultConference(): Promise<string | null> {
+async function getUserDefaultConference(userId: number): Promise<string | null> {
   try {
     const { data } = await supabase
-      .from('config')
-      .select('paramvalue')
-      .eq('paramname', 'DEFAULT_CONFERENCE')
-      .maybeSingle();
-    return data?.paramvalue || null;
+      .from('users')
+      .select('default_conference')
+      .eq('user_id', userId)
+      .single();
+    return data?.default_conference || null;
   } catch {
     return null;
   }
@@ -50,15 +84,15 @@ export default async function BatchesReportPage({
     redirect('/login');
   }
 
-  const conferences = await getConferences();
+  const conferences = await getConferences(user);
   
-  // Use URL param, then default from config, then first conference
+  // Use URL param, then user's default conference, then first conference
   let confcode = searchParams?.confcode || null;
   if (!confcode) {
-    const defaultConf = await getDefaultConference();
-    // Verify default conference exists
-    if (defaultConf && conferences.some(c => c.confcode === defaultConf)) {
-      confcode = defaultConf;
+    const userDefaultConf = await getUserDefaultConference(user.user_id);
+    // Verify user's default conference is in their available list
+    if (userDefaultConf && conferences.some(c => c.confcode === userDefaultConf)) {
+      confcode = userDefaultConf;
     } else if (conferences.length > 0) {
       confcode = conferences[0].confcode;
     }

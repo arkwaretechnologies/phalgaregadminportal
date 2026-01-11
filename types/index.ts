@@ -5,6 +5,8 @@ export interface User {
   role: 'admin' | 'reviewer';
   created_at: string;
   updated_at: string;
+  assigned_conferences?: string[]; // Conference codes assigned to reviewer (empty/null for admin)
+  default_conference?: string | null; // User's preferred default conference for pre-selection
 }
 
 export interface Registration {
@@ -60,4 +62,18 @@ export interface Position {
   name: string;
   created_at: string | null;
   updated_at: string | null;
+}
+
+export interface Bank {
+  id: number;
+  confcode: string;
+  bank_name: string;
+  acct_no: string;
+  payee: string;
+}
+
+export interface Contact {
+  id: number;
+  confcode: string;
+  contact_no: string | null;
 }

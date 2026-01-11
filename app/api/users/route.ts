@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data: users, error } = await supabase
       .from('users')
-      .select('user_id, username, fullname, role, created_at, updated_at')
+      .select('user_id, username, fullname, role, default_conference, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -24,7 +24,24 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ users: users || [] });
+    // Fetch assigned conferences for each user
+    const usersWithConferences = await Promise.all(
+      (users || []).map(async (user) => {
+        if (user.role === 'reviewer') {
+          const { data: assignments } = await supabase
+            .from('user_conferences')
+            .select('confcode')
+            .eq('user_id', user.user_id);
+          return {
+            ...user,
+            assigned_conferences: (assignments || []).map((a: { confcode: string }) => a.confcode),
+          };
+        }
+        return { ...user, assigned_conferences: [] };
+      })
+    );
+
+    return NextResponse.json({ users: usersWithConferences });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,7 +63,7 @@ export async function POST(request: NextRequest) {
     await requireAuth(['admin']);
 
     const body = await request.json();
-    const { username, password, fullname, role } = body;
+    const { username, password, fullname, role, assigned_conferences, default_conference } = body;
 
     // Validate input
     if (!username || !password || !fullname || !role) {
@@ -95,8 +112,9 @@ export async function POST(request: NextRequest) {
         password_hash,
         fullname,
         role,
+        default_conference: default_conference || null,
       })
-      .select('user_id, username, fullname, role, created_at, updated_at')
+      .select('user_id, username, fullname, role, default_conference, created_at, updated_at')
       .single();
 
     if (error) {
@@ -107,7 +125,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ user }, { status: 201 });
+    // If reviewer role and assigned_conferences provided, create assignments
+    if (role === 'reviewer' && Array.isArray(assigned_conferences) && assigned_conferences.length > 0) {
+      const conferenceAssignments = assigned_conferences.map((confcode: string) => ({
+        user_id: user.user_id,
+        confcode,
+      }));
+
+      const { error: assignError } = await supabase
+        .from('user_conferences')
+        .insert(conferenceAssignments);
+
+      if (assignError) {
+        console.error('Error assigning conferences:', assignError);
+        // Don't fail the request, user is created successfully
+      }
+    }
+
+    return NextResponse.json({ 
+      user: { ...user, assigned_conferences: assigned_conferences || [], default_conference: default_conference || null } 
+    }, { status: 201 });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

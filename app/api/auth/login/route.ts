@@ -55,6 +55,16 @@ export async function POST(request: NextRequest) {
     // Set cookie
     await setAuthCookie(token);
 
+    // Fetch assigned conferences for reviewers
+    let assigned_conferences: string[] = [];
+    if (user.role === 'reviewer') {
+      const { data: assignments } = await supabase
+        .from('user_conferences')
+        .select('confcode')
+        .eq('user_id', user.user_id);
+      assigned_conferences = (assignments || []).map((a: { confcode: string }) => a.confcode);
+    }
+
     // Return user data (without password_hash)
     return NextResponse.json({
       user: {
@@ -62,6 +72,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         fullname: user.fullname,
         role: user.role,
+        assigned_conferences,
       },
     });
   } catch (error) {
