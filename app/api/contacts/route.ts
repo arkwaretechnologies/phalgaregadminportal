@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(['admin']);
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
 
     let query = supabase
