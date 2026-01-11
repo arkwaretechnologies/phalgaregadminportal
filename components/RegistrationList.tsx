@@ -66,6 +66,8 @@ export default function RegistrationList({
 
   // Track the last confcode that was used to fetch data
   const lastConfcodeRef = useRef<string | null | undefined>(confcode);
+  // Track previous search query to detect when search is cleared
+  const prevSearchRef = useRef<string>(searchQuery);
 
   // Initialize with server-side data on mount
   useEffect(() => {
@@ -86,7 +88,12 @@ export default function RegistrationList({
 
   // Handle status and search filter changes
   useEffect(() => {
-    if (confcode && (statusFilter !== 'all' || searchQuery)) {
+    const wasSearching = prevSearchRef.current !== '';
+    const isSearching = searchQuery !== '';
+    prevSearchRef.current = searchQuery;
+
+    // Fetch if: status filter is not 'all', or we're searching, or we just cleared search
+    if (confcode && (statusFilter !== 'all' || isSearching || wasSearching)) {
       fetchRegistrations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
