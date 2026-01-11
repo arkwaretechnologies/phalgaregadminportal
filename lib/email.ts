@@ -187,6 +187,21 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                   View Registration Details
                 </a>
               </div>
+              
+              ${status === 'APPROVED' ? `
+              <!-- QR Code Section -->
+              <div style="margin: 30px 0; padding: 20px; background-color: #f9fafb; border-radius: 8px; text-align: center;">
+                <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #374151;">Scan QR Code for Quick Verification</p>
+                <img 
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(registration.regid)}" 
+                  alt="Registration QR Code" 
+                  width="150" 
+                  height="150" 
+                  style="display: block; margin: 0 auto; border: 4px solid white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                />
+                <p style="margin: 15px 0 0 0; font-size: 12px; color: #6b7280;">Registration ID: <strong style="color: #111827;">${registration.regid}</strong></p>
+              </div>
+              ` : ''}
             </td>
           </tr>
           
