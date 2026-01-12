@@ -80,8 +80,7 @@ export async function GET(request: NextRequest) {
         regdepColumns = [
           'regid',
           'confcode',
-          'payment_proof_url',
-          'uploaded_at'
+          'payment_proof_url'
         ];
       }
 
@@ -129,8 +128,7 @@ export async function GET(request: NextRequest) {
       let dependentQuery = supabase
         .from('regdep')
         .select('*')
-        .in('regid', regids)
-        .order('uploaded_at', { ascending: false });
+        .in('regid', regids);
 
       // Also filter by confcode if provided
       if (confcode) {
@@ -174,8 +172,7 @@ export async function GET(request: NextRequest) {
       regdepColumns = [
         'regid',
         'confcode',
-        'payment_proof_url',
-        'uploaded_at'
+        'payment_proof_url'
       ];
     }
 

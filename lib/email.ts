@@ -44,6 +44,28 @@ function formatDateOnly(date: string | null): string {
   });
 }
 
+function formatDateRange(dateFrom: string | null, dateTo: string | null): string {
+  if (!dateFrom && !dateTo) return 'TBA';
+  if (!dateFrom) return formatDateOnly(dateTo);
+  if (!dateTo) return formatDateOnly(dateFrom);
+  
+  const from = new Date(dateFrom);
+  const to = new Date(dateTo);
+  
+  // Check if same month and year
+  if (from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()) {
+    // Same month: "November 11-13, 2026"
+    const monthFull = from.toLocaleDateString('en-US', { month: 'long' });
+    const year = from.getFullYear();
+    const dayFrom = from.getDate();
+    const dayTo = to.getDate();
+    return `${monthFull} ${dayFrom}-${dayTo}, ${year}`;
+  } else {
+    // Different months: "November 30, 2026 - December 2, 2026"
+    return `${formatDateOnly(dateFrom)} - ${formatDateOnly(dateTo)}`;
+  }
+}
+
 function getStatusColor(status: 'APPROVED' | 'REJECTED'): string {
   return status === 'APPROVED' ? '#10b981' : '#ef4444';
 }
@@ -106,7 +128,17 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                   </td>
                   <td align="center" style="padding: 0 10px;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold; line-height: 1.2;">${escapeHtml(conferenceDisplayName)}</h1>
-                    <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 18px; font-weight: 500; opacity: 0.9;">
+                    ${(conferenceVenue || conferenceDateFrom || conferenceDateTo) ? `
+                    <div style="margin: 12px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.95; line-height: 1.6;">
+                      ${(conferenceDateFrom || conferenceDateTo) ? `
+                      <p style="margin: 0; padding: 0;">
+                        ${formatDateRange(conferenceDateFrom, conferenceDateTo)}
+                      </p>
+                      ` : ''}
+                      ${conferenceVenue ? `<p style="margin: ${(conferenceDateFrom || conferenceDateTo) ? '4px 0 0 0' : '0'}; padding: 0;">${escapeHtml(conferenceVenue)}</p>` : ''}
+                    </div>
+                    ` : ''}
+                    <p style="margin: ${(conferenceVenue || conferenceDateFrom || conferenceDateTo) ? '12px' : '10px'} 0 0 0; color: #ffffff; font-size: 18px; font-weight: 500; opacity: 0.9;">
                       Registration ${status === 'APPROVED' ? 'Confirmed' : (status === 'REJECTED' ? 'Unsuccessful' : status)}
                     </p>
                   </td>
@@ -147,33 +179,6 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                 <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Registration ID</p>
                 <p style="margin: 0; font-size: 24px; font-weight: bold; color: #111827; letter-spacing: 1px;">${registration.regid}</p>
               </div>
-              
-              <!-- Conference Details -->
-              ${(conferenceVenue || conferenceDateFrom || conferenceDateTo) ? `
-              <div style="margin: 30px 0; padding: 20px; background-color: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
-                <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px;">Conference Details</p>
-                <table width="100%" cellpadding="0" cellspacing="0">
-                  ${conferenceVenue ? `
-                  <tr>
-                    <td style="padding: 8px 0; font-size: 14px; color: #1e3a8a; width: 40%;">Venue</td>
-                    <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500;">${escapeHtml(conferenceVenue)}</td>
-                  </tr>
-                  ` : ''}
-                  ${conferenceDateFrom ? `
-                  <tr>
-                    <td style="padding: 8px 0; font-size: 14px; color: #1e3a8a;">Date Start</td>
-                    <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500;">${formatDateOnly(conferenceDateFrom)}</td>
-                  </tr>
-                  ` : ''}
-                  ${conferenceDateTo ? `
-                  <tr>
-                    <td style="padding: 8px 0; font-size: 14px; color: #1e3a8a;">Date End</td>
-                    <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500;">${formatDateOnly(conferenceDateTo)}</td>
-                  </tr>
-                  ` : ''}
-                </table>
-              </div>
-              ` : ''}
               
               <!-- Registration Details -->
               <div style="margin: 30px 0; padding: 20px 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">

@@ -54,9 +54,8 @@ export async function GET(
 
     const { data: paymentProofs, error } = await supabase
       .from('regdep')
-      .select('payment_proof_url, uploaded_at')
-      .eq('regid', regid)
-      .order('uploaded_at', { ascending: true });
+      .select('payment_proof_url')
+      .eq('regid', regid);
 
     if (error) {
       console.error('Database error fetching payment proofs:', error);
@@ -68,7 +67,6 @@ export async function GET(
 
     const formattedProofs = (paymentProofs || []).map(proof => ({
       url: proof.payment_proof_url,
-      uploaded_at: proof.uploaded_at,
     }));
 
     return NextResponse.json({ paymentProofs: formattedProofs });

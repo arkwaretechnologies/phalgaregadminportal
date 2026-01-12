@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 interface PaymentProof {
   url: string;
-  uploaded_at: string;
+  uploaded_at?: string;
 }
 
 interface PaymentProofImageViewerProps {
@@ -291,7 +291,10 @@ export default function PaymentProofImageViewer({
           
           {/* Footer Content */}
           <div className="flex items-center justify-between p-3 sm:p-4 text-sm text-gray-600 bg-gray-50">
-            <p className="truncate mr-4">Uploaded: {formatDate(currentProof.uploaded_at)}</p>
+            {currentProof.uploaded_at && (
+              <p className="truncate mr-4">Uploaded: {formatDate(currentProof.uploaded_at)}</p>
+            )}
+            {!currentProof.uploaded_at && <div className="flex-1" />}
             <div className="flex items-center gap-2">
               {isImageFile(currentProof.url) && (
                 <>

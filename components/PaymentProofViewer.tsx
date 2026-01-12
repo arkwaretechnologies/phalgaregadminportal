@@ -5,7 +5,7 @@ import PaymentProofImageViewer from './PaymentProofImageViewer';
 
 interface PaymentProof {
   url: string;
-  uploaded_at: string;
+  uploaded_at?: string;
 }
 
 interface PaymentProofViewerProps {
