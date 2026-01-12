@@ -361,15 +361,21 @@ export async function POST(request: NextRequest) {
     // Fetch conference information for email
     let conferenceName: string | null = null;
     let conferenceDomain: string | null = null;
+    let conferenceVenue: string | null = null;
+    let conferenceDateFrom: string | null = null;
+    let conferenceDateTo: string | null = null;
     if (updatedRegistration.confcode) {
       const { data: conference } = await supabase
         .from('conference')
-        .select('name, domain')
+        .select('name, domain, venue, date_from, date_to')
         .eq('confcode', updatedRegistration.confcode)
         .maybeSingle();
       
       conferenceName = conference?.name || null;
       conferenceDomain = conference?.domain || null;
+      conferenceVenue = conference?.venue || null;
+      conferenceDateFrom = conference?.date_from || null;
+      conferenceDateTo = conference?.date_to || null;
     }
 
     // Send email notification to participant (non-blocking)
@@ -381,6 +387,9 @@ export async function POST(request: NextRequest) {
       remarks: remarks || null,
       conferenceName: conferenceName,
       conferenceDomain: conferenceDomain,
+      conferenceVenue: conferenceVenue,
+      conferenceDateFrom: conferenceDateFrom,
+      conferenceDateTo: conferenceDateTo,
     })
       .then((success) => {
         if (success) {
