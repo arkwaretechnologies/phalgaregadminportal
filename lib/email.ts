@@ -132,7 +132,7 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                     <div style="margin: 12px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.95; line-height: 1.6;">
                       ${(conferenceDateFrom || conferenceDateTo) ? `
                       <p style="margin: 0; padding: 0;">
-                        ${formatDateRange(conferenceDateFrom, conferenceDateTo)}
+                        ${formatDateRange(conferenceDateFrom ?? null, conferenceDateTo ?? null)}
                       </p>
                       ` : ''}
                       ${conferenceVenue ? `<p style="margin: ${(conferenceDateFrom || conferenceDateTo) ? '4px 0 0 0' : '0'}; padding: 0;">${escapeHtml(conferenceVenue)}</p>` : ''}
