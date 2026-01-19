@@ -204,7 +204,7 @@ export default function RegistrationDetailModal({
                           Designation
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Contact
+                          Barangay
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           T-Shirt Size
@@ -221,7 +221,7 @@ export default function RegistrationDetailModal({
                             {item.designation || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.contactnum || 'N/A'}
+                            {item.brgy || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.tshirtsize || 'N/A'}
