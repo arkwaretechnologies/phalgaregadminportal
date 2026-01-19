@@ -240,6 +240,8 @@ export default function RegistrationList({
 
           return {
             ...data.registration,
+            // Preserve participant_count from local state (detail API doesn't include it)
+            participant_count: r.participant_count ?? data.registration.participant_count ?? 0,
             last_viewed_at:
               incomingLastViewed >= currentLastViewed
                 ? data.registration.last_viewed_at
