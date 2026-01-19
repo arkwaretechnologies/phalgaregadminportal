@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('regh')
-      .select('*')
+      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
       .order('regdate', { ascending: false });
 
     // Filter by conference code
@@ -88,9 +88,18 @@ export async function GET(request: NextRequest) {
 
     const registrationsWithCounts = (registrations || []).map((r: any) => {
       const regidStr = r?.regid ? String(r.regid).trim() : null;
+      // Flatten the nested upload_notification structure
+      const notification = Array.isArray(r.upload_notification) 
+        ? r.upload_notification[0] 
+        : r.upload_notification;
+      
       return {
         ...r,
         participant_count: regidStr ? (countsByRegid.get(regidStr) || 0) : 0,
+        proof_uploaded_at: notification?.proof_uploaded_at || null,
+        last_viewed_at: notification?.last_viewed_at || null,
+        // Remove the nested upload_notification object
+        upload_notification: undefined,
       };
     });
 

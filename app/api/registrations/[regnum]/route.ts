@@ -23,7 +23,7 @@ export async function GET(
     // First, try to find by regid (this works for both pending and approved)
     const { data: regById, error: errorById } = await supabase
       .from('regh')
-      .select('*')
+      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
       .eq('regid', decodedRegnum)
       .maybeSingle();
 
@@ -37,7 +37,7 @@ export async function GET(
       if (isNumeric) {
         const { data: regByBatch, error: errorByBatch } = await supabase
           .from('regh')
-          .select('*')
+          .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
           .eq('batchnum', batchnum)
           .maybeSingle();
         
@@ -75,9 +75,41 @@ export async function GET(
           .order('linenum', { ascending: true })
       : { data: [], error: null };
 
+    // Flatten the nested upload_notification structure
+    const notification = Array.isArray(registration.upload_notification)
+      ? registration.upload_notification[0]
+      : registration.upload_notification;
+
+    // Update last_viewed_at timestamp when registration is viewed.
+    // IMPORTANT: do this BEFORE responding so the client doesn't overwrite optimistic UI with stale values.
+    let viewedAtIso: string | null = null;
+    if (registration.regid) {
+      viewedAtIso = new Date().toISOString();
+      const { error: upsertError } = await supabase
+        .from('upload_notification')
+        .upsert(
+          {
+            regid: registration.regid,
+            last_viewed_at: viewedAtIso,
+            updated_at: viewedAtIso,
+          },
+          { onConflict: 'regid' }
+        );
+
+      if (upsertError) {
+        console.error('Error updating upload_notification.last_viewed_at:', upsertError);
+        // If this fails, fall back to whatever was fetched via the join
+        viewedAtIso = null;
+      }
+    }
+
     const registrationDetail: RegistrationDetail = {
       ...registration,
       regd: regd || undefined,
+      proof_uploaded_at: notification?.proof_uploaded_at || null,
+      last_viewed_at: viewedAtIso || notification?.last_viewed_at || null,
+      // Remove the nested upload_notification object
+      upload_notification: undefined,
     };
 
     return NextResponse.json({ registration: registrationDetail });

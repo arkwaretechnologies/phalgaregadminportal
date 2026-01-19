@@ -32,7 +32,7 @@ async function getRegistrations(status: string = 'all', search: string = '', con
   try {
     let query = supabase
       .from('regh')
-      .select('*')
+      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
       .order('regdate', { ascending: false });
 
     if (confcode) {
@@ -81,10 +81,21 @@ async function getRegistrations(status: string = 'all', search: string = '', con
       }
     }
 
-    return (registrations || []).map((r: any) => ({
-      ...r,
-      participant_count: r.regid ? (countsByRegid.get(String(r.regid).trim()) || 0) : 0,
-    }));
+    return (registrations || []).map((r: any) => {
+      // Flatten the nested upload_notification structure
+      const notification = Array.isArray(r.upload_notification) 
+        ? r.upload_notification[0] 
+        : r.upload_notification;
+      
+      return {
+        ...r,
+        participant_count: r.regid ? (countsByRegid.get(String(r.regid).trim()) || 0) : 0,
+        proof_uploaded_at: notification?.proof_uploaded_at || null,
+        last_viewed_at: notification?.last_viewed_at || null,
+        // Remove the nested upload_notification object
+        upload_notification: undefined,
+      };
+    });
   } catch (error) {
     console.error('Error fetching registrations:', error);
     return [];

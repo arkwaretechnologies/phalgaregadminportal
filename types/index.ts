@@ -23,6 +23,8 @@ export interface Registration {
   remarks: string | null;
   payment_proof_url?: string | null; // Payment proof file URL or path in storage
   participant_count?: number; // Derived: number of regD rows for this batchnum
+  proof_uploaded_at?: string | null; // Timestamp when proof was last uploaded (from upload_notification table)
+  last_viewed_at?: string | null; // Timestamp when registration was last viewed by admin (from upload_notification table)
 }
 
 export interface RegistrationDetail extends Registration {

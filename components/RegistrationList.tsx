@@ -160,6 +160,13 @@ export default function RegistrationList({
     }
   };
 
+  const hasNewProof = (registration: Registration) => {
+    if (!registration.proof_uploaded_at) return false;
+    if (!registration.last_viewed_at) return true;
+    
+    return new Date(registration.proof_uploaded_at) > new Date(registration.last_viewed_at);
+  };
+
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString();
@@ -191,6 +198,14 @@ export default function RegistrationList({
     try {
       setViewLoadingIdentifier(identifier);
       
+      // Optimistically update last_viewed_at immediately so the badge disappears instantly
+      const now = new Date().toISOString();
+      setRegistrations(prev => prev.map(r => 
+        (r.regid === registration.regid) 
+          ? { ...r, last_viewed_at: now }
+          : r
+      ));
+      
       // Use batchnum if available, otherwise use regid for pending registrations
       // Always use regid for fetching - batchnum is no longer globally unique (per-conference)
       const url = `/api/registrations/${encodeURIComponent(registration.regid!)}`;
@@ -201,12 +216,37 @@ export default function RegistrationList({
         const errorData = await response.json().catch(() => ({ error: 'Failed to fetch registration details' }));
         console.error('Error fetching registration details:', errorData.error || 'Unknown error', response.status);
         alert(`Failed to load registration details: ${errorData.error || `HTTP ${response.status}`}`);
+        // Revert optimistic update on error
+        setRegistrations(prev => prev.map(r => 
+          (r.regid === registration.regid) 
+            ? { ...r, last_viewed_at: registration.last_viewed_at }
+            : r
+        ));
         return;
       }
 
       const data = await response.json();
       
       if (data.registration) {
+        // Update the registration in local list state with the server response.
+        // But don't allow last_viewed_at to go backwards (can happen if server returns stale data).
+        setRegistrations(prev => prev.map(r => {
+          if (r.regid !== data.registration.regid) return r;
+
+          const currentLastViewed = r.last_viewed_at ? new Date(r.last_viewed_at).getTime() : 0;
+          const incomingLastViewed = data.registration.last_viewed_at
+            ? new Date(data.registration.last_viewed_at).getTime()
+            : 0;
+
+          return {
+            ...data.registration,
+            last_viewed_at:
+              incomingLastViewed >= currentLastViewed
+                ? data.registration.last_viewed_at
+                : r.last_viewed_at,
+          };
+        }));
+        
         setRegistrationDetail(data.registration);
         setShowDetailModal(true);
       } else {
@@ -326,9 +366,16 @@ export default function RegistrationList({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {registration.regid}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {registration.regid}
+                        </p>
+                        {hasNewProof(registration) && (
+                          <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold bg-indigo-600 text-white animate-pulse whitespace-nowrap">
+                            New Proof Uploaded
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 mt-1">
                         {formatDate(registration.regdate)} • {formatTime(registration.regdate)}
                       </p>
@@ -470,9 +517,16 @@ export default function RegistrationList({
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedRegistrations.map((registration) => (
                     <tr key={registration.batchnum || registration.regid} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {registration.regid}
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                            {registration.regid}
+                          </div>
+                          {hasNewProof(registration) && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-600 text-white animate-pulse whitespace-nowrap">
+                              New Proof Uploaded
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
