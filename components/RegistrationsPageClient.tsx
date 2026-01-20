@@ -55,11 +55,11 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
   const used = data?.used ?? 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 px-5 py-3 min-w-[180px] text-right">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 px-5 py-3 w-full sm:w-auto sm:min-w-[180px] text-left sm:text-right">
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
         Remaining slots
       </div>
-      <div className="mt-1 text-2xl font-bold text-gray-900 tabular-nums flex items-center justify-end gap-2">
+      <div className="mt-1 text-2xl font-bold text-gray-900 tabular-nums flex items-center sm:justify-end gap-2">
         {loading ? (
           <span className="text-gray-400">
             <LoadingSpinner />
@@ -147,7 +147,7 @@ export default function RegistrationsPageClient({
   return (
     <div>
       <div className="mb-8">
-        <div className="flex items-start justify-between gap-6 mb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-start sm:justify-between gap-4 sm:gap-6 mb-3">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@ export default function RegistrationsPageClient({
               </svg>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Registrations
               </h1>
               <p className="text-sm text-gray-500 mt-1 font-medium">
@@ -164,7 +164,7 @@ export default function RegistrationsPageClient({
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="w-full sm:w-auto sm:shrink-0">
             <RemainingSlotsCard refreshNonce={refreshNonce} confcode={selectedConfcode} />
           </div>
         </div>
@@ -172,7 +172,7 @@ export default function RegistrationsPageClient({
         {/* Conference Filter */}
         <div className="mt-4">
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <label htmlFor="conference-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
                 Conference:
               </label>
@@ -181,7 +181,7 @@ export default function RegistrationsPageClient({
                 value={selectedConfcode || (conferences.length > 0 ? conferences[0].confcode : '')}
                 onChange={handleConferenceChange}
                 disabled={loadingConferences || conferences.length === 0}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white text-gray-900"
+                className="w-full sm:flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white text-gray-900"
               >
                 {conferences.length === 0 && !loadingConferences ? (
                   <option value="">No conferences available</option>

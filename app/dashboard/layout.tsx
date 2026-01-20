@@ -242,6 +242,16 @@ export default function DashboardLayout({
                     >
                       <span className="text-sm">Per Batch Number</span>
                     </Link>
+                    <Link
+                      href="/dashboard/reports/tshirt-sizes"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/tshirt-sizes'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">T-Shirt Size Summary</span>
+                    </Link>
                   </div>
                 )}
               </div>

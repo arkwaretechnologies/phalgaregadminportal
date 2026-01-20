@@ -137,9 +137,9 @@ export default function TshirtSizesReportClient({
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,17 +147,17 @@ export default function TshirtSizesReportClient({
               </svg>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
                 T-Shirt Size Summary
               </h1>
-              <p className="text-gray-600 mt-1">Counts of t-shirt sizes for approved participants (per conference)</p>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Counts of t-shirt sizes for approved participants (per conference)</p>
             </div>
           </div>
 
           <button
             onClick={handleExportExcel}
             disabled={exporting || loading || !summary || sizeRows.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors w-full sm:w-auto"
           >
             {exporting ? (
               <>
@@ -180,14 +180,14 @@ export default function TshirtSizesReportClient({
       </div>
 
       {/* Conference Filter */}
-      <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+      <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Conference
         </label>
         <select
           value={selectedConfcode || ''}
           onChange={(e) => handleConferenceChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 text-sm sm:text-base"
         >
           {conferences.map((conference) => (
             <option key={conference.confcode} value={conference.confcode}>
@@ -200,11 +200,11 @@ export default function TshirtSizesReportClient({
       {/* Conference Title */}
       {selectedConference && (
         <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-          <h2 className="text-xl font-bold text-indigo-900">
+          <h2 className="text-lg sm:text-xl font-bold text-indigo-900">
             {selectedConference.name || selectedConference.confcode}
           </h2>
           {selectedConference.name && (
-            <p className="text-sm text-indigo-600 mt-1">{selectedConference.confcode}</p>
+            <p className="text-xs sm:text-sm text-indigo-600 mt-1">{selectedConference.confcode}</p>
           )}
         </div>
       )}
@@ -216,50 +216,52 @@ export default function TshirtSizesReportClient({
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">Loading t-shirt size summary...</p>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 text-center">
+          <p className="text-sm sm:text-base text-gray-500">Loading t-shirt size summary...</p>
         </div>
       ) : !summary || sizeRows.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">No approved participants (or no t-shirt sizes recorded) for this conference.</p>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 text-center">
+          <p className="text-sm sm:text-base text-gray-500">No approved participants (or no t-shirt sizes recorded) for this conference.</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    T-Shirt Size
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Count
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sizeRows.map((row) => (
-                  <tr key={row.size} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {row.size}
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      T-Shirt Size
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Count
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sizeRows.map((row) => (
+                    <tr key={row.size} className="hover:bg-gray-50">
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 font-medium">
+                        {row.size}
+                      </td>
+                      <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 text-right tabular-nums">
+                        {row.count}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td className="px-3 sm:px-4 py-3 text-sm font-semibold text-gray-700">
+                      Total
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 text-right tabular-nums">
-                      {row.count}
+                    <td className="px-3 sm:px-4 py-3 text-sm font-semibold text-gray-900 text-right tabular-nums">
+                      {summary.total}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-700">
-                    Total
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right tabular-nums">
-                    {summary.total}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </div>
       )}
