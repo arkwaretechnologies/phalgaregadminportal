@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 
 interface PaymentProof {
   url: string;
@@ -26,6 +26,11 @@ export default function PaymentProofImageViewer({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [rotation, setRotation] = useState(0);
   const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const didMoveDuringPointerRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
   const currentProof = proofs[currentIndex];
 
   const handleRotate = useCallback(() => {
@@ -33,6 +38,9 @@ export default function PaymentProofImageViewer({
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
+    // Prevent the wheel from scrolling the page while zooming in the modal.
+    e.preventDefault();
+
     // Only zoom if Ctrl is pressed or just scroll? 
     // Usually in image viewers, scroll zooms. 
     // To prevent page scroll, we should preventDefault if we can, 
@@ -50,6 +58,7 @@ export default function PaymentProofImageViewer({
   const resetView = useCallback(() => {
     setRotation(0);
     setScale(1);
+    setPan({ x: 0, y: 0 });
   }, []);
 
   const goToNext = useCallback(() => {
@@ -61,6 +70,78 @@ export default function PaymentProofImageViewer({
     setCurrentIndex((prevIndex) => (prevIndex - 1 + proofs.length) % proofs.length);
     resetView();
   }, [proofs.length, resetView]);
+
+  const stopPanning = useCallback(() => {
+    isPanningRef.current = false;
+    lastPointRef.current = null;
+    activePointerIdRef.current = null;
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      // Only allow panning when zoomed in (otherwise it conflicts with normal clicking).
+      if (scale <= 1) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      activePointerIdRef.current = e.pointerId;
+      isPanningRef.current = true;
+      didMoveDuringPointerRef.current = false;
+      lastPointRef.current = { x: e.clientX, y: e.clientY };
+
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore capture errors (older browsers / non-capturable targets)
+      }
+    },
+    [scale]
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanningRef.current) return;
+    if (activePointerIdRef.current !== e.pointerId) return;
+    if (scale <= 1) return;
+
+    e.preventDefault();
+
+    const last = lastPointRef.current;
+    if (!last) {
+      lastPointRef.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
+    const dx = e.clientX - last.x;
+    const dy = e.clientY - last.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      didMoveDuringPointerRef.current = true;
+    }
+    lastPointRef.current = { x: e.clientX, y: e.clientY };
+
+    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+  }, [scale]);
+
+  const handlePointerUpOrCancel = useCallback((e: React.PointerEvent) => {
+    if (activePointerIdRef.current !== e.pointerId) return;
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    stopPanning();
+  }, [stopPanning]);
+
+  const handleToggleZoom = useCallback(() => {
+    setScale((prev) => {
+      // Toggle between 1x and 2x for a simple "click to zoom" UX.
+      const next = prev <= 1 ? 2 : 1;
+      return next;
+    });
+    // When toggling zoom, re-center the image for predictable behavior.
+    setPan({ x: 0, y: 0 });
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -83,6 +164,13 @@ export default function PaymentProofImageViewer({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown]);
+
+  useEffect(() => {
+    // If the user zooms back out to 1x (or smaller), reset pan so the image recenters.
+    if (scale <= 1 && (pan.x !== 0 || pan.y !== 0)) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [scale, pan.x, pan.y]);
 
   const handleDownload = async () => {
     if (!currentProof?.url) return;
@@ -114,6 +202,81 @@ export default function PaymentProofImageViewer({
     } catch (error) {
       console.error('Error downloading file:', error);
       window.open(currentProof.url, '_blank');
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!currentProof?.url) return;
+
+    try {
+      // Use a hidden same-page iframe (srcdoc) so the user doesn't get navigated to a new tab.
+      const url = currentProof.url;
+      const isPdf = isPdfFile(url);
+      const title = `Payment Proof ${currentIndex + 1}`;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.setAttribute('aria-hidden', 'true');
+
+      // Same-origin document that can call print(), while embedding the cross-origin asset.
+      iframe.srcdoc = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title}</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; align-items: center; justify-content: center; }
+      img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      iframe, embed { width: 100vw; height: 100vh; border: 0; }
+      @page { margin: 12mm; }
+    </style>
+  </head>
+  <body>
+    ${isPdf ? `<embed src="${url}" type="application/pdf" />` : `<img src="${url}" alt="${title}" />`}
+    <script>
+      // Give the embedded resource a moment to render before printing.
+      const tryPrint = () => { try { window.focus(); window.print(); } catch (e) {} };
+      window.addEventListener('load', () => setTimeout(tryPrint, 250));
+      setTimeout(tryPrint, 800);
+      setTimeout(tryPrint, 1600);
+    </script>
+  </body>
+</html>`;
+
+      document.body.appendChild(iframe);
+
+      // Cleanup after the print dialog is closed (best-effort).
+      const cleanup = () => {
+        try {
+          iframe.remove();
+        } catch {
+          // ignore
+        }
+      };
+
+      // Some browsers fire afterprint on the iframe's contentWindow.
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.addEventListener?.('afterprint', cleanup, { once: true } as any);
+        } catch {
+          // ignore
+        }
+      };
+
+      // Fallback cleanup in case afterprint doesn't fire.
+      window.setTimeout(cleanup, 30_000);
+    } catch (error) {
+      console.error('Error printing file:', error);
+      // Last-resort fallback: open the file (user can press Ctrl+P).
+      window.open(currentProof.url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -166,7 +329,28 @@ export default function PaymentProofImageViewer({
           onWheel={handleWheel}
         >
           {isImageFile(currentProof.url) ? (
-            <div className="relative w-full h-full flex items-center justify-center min-h-0 overflow-visible cursor-zoom-in">
+            <div
+              className={`relative w-full h-full flex items-center justify-center min-h-0 overflow-hidden ${
+                scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'
+              }`}
+              style={{ touchAction: scale > 1 ? 'none' : 'auto' }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUpOrCancel}
+              onPointerCancel={handlePointerUpOrCancel}
+              onPointerLeave={handlePointerUpOrCancel}
+              onClick={(e) => {
+                // Avoid the "click to close" bubbling when the user is interacting with the image.
+                e.stopPropagation();
+                // If the user dragged to pan, don't treat mouse-up as a zoom click.
+                if (didMoveDuringPointerRef.current) {
+                  // Clear the flag after the "post-drag click" is ignored.
+                  didMoveDuringPointerRef.current = false;
+                  return;
+                }
+                handleToggleZoom();
+              }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentProof.url}
@@ -175,7 +359,7 @@ export default function PaymentProofImageViewer({
                 style={{ 
                   maxHeight: 'calc(95vh - 280px)',
                   maxWidth: '100%',
-                  transform: `rotate(${rotation}deg) scale(${scale})`
+                  transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${scale})`
                 }}
                 onError={(e) => {
                   console.error('Error loading image:', currentProof.url);
@@ -327,6 +511,20 @@ export default function PaymentProofImageViewer({
                   </button>
                 </>
               )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrint();
+                }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md transition-colors flex-shrink-0"
+                title="Print"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 14h12v8H6z" />
+                </svg>
+                Print
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
