@@ -40,11 +40,17 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const search = searchParams.get('search');
+    const confcode = searchParams.get('confcode');
 
     let query = supabase
       .from('regh')
-      .select('*')
+      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
       .order('regdate', { ascending: false });
+
+    // Filter by conference code
+    if (confcode) {
+      query = query.eq('confcode', confcode);
+    }
 
     // Filter by status (convert to uppercase for consistency)
     if (status && status !== 'all') {
@@ -54,7 +60,7 @@ export async function GET(request: NextRequest) {
     // Search functionality
     if (search) {
       query = query.or(
-        `transid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
+        `regid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
       );
     }
 
@@ -130,7 +136,54 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ registrations: processedRegistrations || [] });
+    // Attach participant counts from regD (per regid) for display in the table.
+    // regd rows are linked to regh by regid, not batchnum.
+    const regids = (processedRegistrations || [])
+      .map((r: any) => r?.regid)
+      .filter((id: any) => id != null && id !== '');
+
+    const countsByRegid = new Map<string, number>();
+
+    if (regids.length > 0) {
+      const queryRegids = regids.map((id: any) => String(id).trim());
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < queryRegids.length; i += CHUNK_SIZE) {
+        const chunk = queryRegids.slice(i, i + CHUNK_SIZE);
+        const { data: regdRows, error: regdError } = await supabase
+          .from('regd')
+          .select('regid')
+          .in('regid', chunk);
+
+        if (regdError) {
+          console.error('Database error (regd count by regid):', regdError);
+          continue;
+        }
+
+        for (const row of regdRows || []) {
+          const rawId = (row as any)?.regid;
+          if (rawId == null) continue;
+          const regidStr = String(rawId).trim();
+          countsByRegid.set(regidStr, (countsByRegid.get(regidStr) || 0) + 1);
+        }
+      }
+    }
+
+    const finalRegistrations = (processedRegistrations || []).map((r: any) => {
+      const regidStr = r?.regid ? String(r.regid).trim() : null;
+      const notification = Array.isArray(r.upload_notification)
+        ? r.upload_notification[0]
+        : r.upload_notification;
+
+      return {
+        ...r,
+        participant_count: regidStr ? (countsByRegid.get(regidStr) || 0) : 0,
+        proof_uploaded_at: notification?.proof_uploaded_at || null,
+        last_viewed_at: notification?.last_viewed_at || null,
+        upload_notification: undefined,
+      };
+    });
+
+    return NextResponse.json({ registrations: finalRegistrations });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
