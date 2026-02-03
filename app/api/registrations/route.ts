@@ -70,27 +70,63 @@ export async function GET(request: NextRequest) {
     // and merge those registrations into the results
     let additionalRegids: string[] = [];
     if (search && !error) {
-      // Search for participants by firstname or lastname in regd table
-      let regdQuery = supabase
+      const searchTerm = search.trim();
+      const searchParts = searchTerm.split(/\s+/).filter(Boolean);
+      
+      // Collect all matching regids from different search strategies
+      const matchingRegids = new Set<string>();
+      
+      // Strategy 1: Search the exact term in firstname or lastname
+      let query1 = supabase
         .from('regd')
         .select('regid')
-        .or(`firstname.ilike.%${search}%,lastname.ilike.%${search}%`);
+        .or(`firstname.ilike.%${searchTerm}%,lastname.ilike.%${searchTerm}%`);
       
-      // Filter by conference code if provided
       if (confcode) {
-        regdQuery = regdQuery.eq('confcode', confcode);
+        query1 = query1.eq('confcode', confcode);
       }
-
-      const { data: regdMatches, error: regdError } = await regdQuery;
       
-      if (!regdError && regdMatches && regdMatches.length > 0) {
-        // Get unique regids from participant matches
-        additionalRegids = Array.from(new Set(regdMatches.map((r: any) => r.regid).filter(Boolean)));
+      const { data: matches1 } = await query1;
+      matches1?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
+      
+      // Strategy 2: For multi-word searches, try firstname contains first word AND lastname contains last word
+      // This handles full name searches like "Juan Dela Cruz" where firstname="Juan" and lastname="Dela Cruz"
+      if (searchParts.length >= 2) {
+        const firstWord = searchParts[0];
+        const lastWord = searchParts[searchParts.length - 1];
         
-        // Filter out regids that are already in the results
-        const existingRegids = new Set((registrations || []).map((r: any) => r.regid));
-        additionalRegids = additionalRegids.filter(regid => !existingRegids.has(regid));
+        let query2 = supabase
+          .from('regd')
+          .select('regid')
+          .ilike('firstname', `%${firstWord}%`)
+          .ilike('lastname', `%${lastWord}%`);
+        
+        if (confcode) {
+          query2 = query2.eq('confcode', confcode);
+        }
+        
+        const { data: matches2 } = await query2;
+        matches2?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
+        
+        // Strategy 3: Also try the reverse - last word in firstname, first word in lastname
+        // This handles cases where names might be entered in different orders
+        let query3 = supabase
+          .from('regd')
+          .select('regid')
+          .ilike('firstname', `%${lastWord}%`)
+          .ilike('lastname', `%${firstWord}%`);
+        
+        if (confcode) {
+          query3 = query3.eq('confcode', confcode);
+        }
+        
+        const { data: matches3 } = await query3;
+        matches3?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
       }
+      
+      // Convert Set to array and filter out regids already in the results
+      const existingRegids = new Set((registrations || []).map((r: any) => r.regid));
+      additionalRegids = Array.from(matchingRegids).filter(regid => !existingRegids.has(regid));
     }
 
     // Fetch additional registrations that match participant names
