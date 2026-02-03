@@ -301,7 +301,7 @@ export default function RegistrationList({
                       id="search"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by Registration ID, email, or contact person..."
+                      placeholder="Search by Registration ID, email, contact person, or participant name..."
                       className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-700 placeholder-gray-400 font-medium"
                     />
                   </div>

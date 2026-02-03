@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status.toUpperCase());
     }
 
-    // Search functionality
+    // Search functionality - search in regh fields
     if (search) {
       query = query.or(
         `regid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
@@ -65,6 +65,54 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: registrations, error } = await query;
+
+    // If search term is provided, also search for participant names in regd table
+    // and merge those registrations into the results
+    let additionalRegids: string[] = [];
+    if (search && !error) {
+      // Search for participants by firstname or lastname in regd table
+      let regdQuery = supabase
+        .from('regd')
+        .select('regid')
+        .or(`firstname.ilike.%${search}%,lastname.ilike.%${search}%`);
+      
+      // Filter by conference code if provided
+      if (confcode) {
+        regdQuery = regdQuery.eq('confcode', confcode);
+      }
+
+      const { data: regdMatches, error: regdError } = await regdQuery;
+      
+      if (!regdError && regdMatches && regdMatches.length > 0) {
+        // Get unique regids from participant matches
+        additionalRegids = Array.from(new Set(regdMatches.map((r: any) => r.regid).filter(Boolean)));
+        
+        // Filter out regids that are already in the results
+        const existingRegids = new Set((registrations || []).map((r: any) => r.regid));
+        additionalRegids = additionalRegids.filter(regid => !existingRegids.has(regid));
+      }
+    }
+
+    // Fetch additional registrations that match participant names
+    let allRegistrations = registrations || [];
+    if (additionalRegids.length > 0) {
+      let additionalQuery = supabase
+        .from('regh')
+        .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
+        .in('regid', additionalRegids)
+        .order('regdate', { ascending: false });
+
+      // Apply status filter if specified
+      if (status && status !== 'all') {
+        additionalQuery = additionalQuery.eq('status', status.toUpperCase());
+      }
+
+      const { data: additionalRegs, error: additionalError } = await additionalQuery;
+      
+      if (!additionalError && additionalRegs) {
+        allRegistrations = [...allRegistrations, ...additionalRegs];
+      }
+    }
 
     if (error) {
       console.error('Database error:', error);
@@ -77,7 +125,7 @@ export async function GET(request: NextRequest) {
     // Auto-reject registrations that have passed 24 hours and are still PENDING
     const now = new Date();
     const processedRegistrations = await Promise.all(
-      (registrations || []).map(async (reg: any) => {
+      (allRegistrations || []).map(async (reg: any) => {
         // Normalize status to uppercase for comparison
         const regStatus = reg.status?.toUpperCase() || null;
         
