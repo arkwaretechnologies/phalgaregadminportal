@@ -168,46 +168,46 @@ export async function GET(request: NextRequest) {
     );
 
     // Attach participant counts from regD (per regid) for display in the table.
-    // regd rows are linked to regh by regid, not batchnum.
-    const regids = (processedRegistrations || [])
-      .map((r: any) => r?.regid)
-      .filter((id: any) => id != null && id !== '');
-
+    // Run ALL count queries in parallel for speed (this approach works reliably)
     const countsByRegid = new Map<string, number>();
 
-    if (regids.length > 0) {
-      const queryRegids = regids.map((id: any) => String(id).trim());
-      const CHUNK_SIZE = 100;
-      for (let i = 0; i < queryRegids.length; i += CHUNK_SIZE) {
-        const chunk = queryRegids.slice(i, i + CHUNK_SIZE);
-        const { data: regdRows, error: regdError } = await supabase
+    // Get unique regids from registrations
+    const uniqueRegids = Array.from(
+      new Set(
+        (processedRegistrations || [])
+          .map((r: any) => r?.regid)
+          .filter((id: any) => id != null && id !== '')
+      )
+    );
+
+    if (uniqueRegids.length > 0) {
+      // Execute ALL count queries in parallel at once
+      const countPromises = uniqueRegids.map(async (regid: any) => {
+        const { count, error } = await supabase
           .from('regd')
-          .select('regid')
-          .in('regid', chunk);
+          .select('*', { count: 'exact', head: true })
+          .eq('regid', regid);
+        
+        return { regid, count: error ? 0 : (count || 0) };
+      });
 
-        if (regdError) {
-          console.error('Database error (regd count by regid):', regdError);
-          continue;
-        }
-
-        for (const row of regdRows || []) {
-          const rawId = (row as any)?.regid;
-          if (rawId == null) continue;
-          const regidStr = String(rawId).trim();
-          countsByRegid.set(regidStr, (countsByRegid.get(regidStr) || 0) + 1);
-        }
+      const results = await Promise.all(countPromises);
+      
+      for (const { regid, count } of results) {
+        countsByRegid.set(String(regid).trim(), count);
       }
     }
 
     const finalRegistrations = (processedRegistrations || []).map((r: any) => {
-      const regidStr = r?.regid ? String(r.regid).trim() : null;
+      const regid = r?.regid;
+      const regidKey = regid ? String(regid).trim() : null;
       const notification = Array.isArray(r.upload_notification)
         ? r.upload_notification[0]
         : r.upload_notification;
 
       return {
         ...r,
-        participant_count: regidStr ? (countsByRegid.get(regidStr) || 0) : 0,
+        participant_count: regidKey ? (countsByRegid.get(regidKey) || 0) : 0,
         proof_uploaded_at: notification?.proof_uploaded_at || null,
         last_viewed_at: notification?.last_viewed_at || null,
         upload_notification: undefined,

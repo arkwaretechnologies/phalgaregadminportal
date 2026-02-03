@@ -60,24 +60,34 @@ async function getRegistrations(status: string = 'all', search: string = '', con
       return [];
     }
 
-    // Attach participant counts
-    const regids = registrations
-      .map((r: any) => r?.regid)
-      .filter((id: any) => id != null && id !== '');
-
+    // Attach participant counts using individual count queries per regid
+    // Run ALL queries in parallel for speed (this approach works reliably)
     const countsByRegid = new Map<string, number>();
 
-    if (regids.length > 0) {
-      const { data: regdRows, error: regdError } = await supabase
-        .from('regd')
-        .select('regid')
-        .in('regid', regids);
+    // Get unique regids from registrations
+    const uniqueRegids = Array.from(
+      new Set(
+        registrations
+          .map((r: any) => r?.regid)
+          .filter((id: any) => id != null && id !== '')
+      )
+    );
 
-      if (!regdError && regdRows) {
-        for (const row of regdRows) {
-          const rid = String(row.regid).trim();
-          countsByRegid.set(rid, (countsByRegid.get(rid) || 0) + 1);
-        }
+    if (uniqueRegids.length > 0) {
+      // Execute ALL count queries in parallel at once
+      const countPromises = uniqueRegids.map(async (regid: any) => {
+        const { count, error } = await supabase
+          .from('regd')
+          .select('*', { count: 'exact', head: true })
+          .eq('regid', regid);
+        
+        return { regid, count: error ? 0 : (count || 0) };
+      });
+
+      const results = await Promise.all(countPromises);
+      
+      for (const { regid, count } of results) {
+        countsByRegid.set(String(regid).trim(), count);
       }
     }
 
