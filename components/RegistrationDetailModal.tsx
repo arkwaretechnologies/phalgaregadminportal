@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RegistrationDetail } from '@/types';
+import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from './ApprovalModal';
 import CountdownTimer from './CountdownTimer';
 import PaymentProofViewer from './PaymentProofViewer';
+import LoadingSpinner from './LoadingSpinner';
 
 interface RegistrationDetailModalProps {
   registration: RegistrationDetail;
@@ -21,6 +22,9 @@ export default function RegistrationDetailModal({
 }: RegistrationDetailModalProps) {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [currentRegistration, setCurrentRegistration] = useState<RegistrationDetail>(registration);
+  const [participantToDelete, setParticipantToDelete] = useState<RegistrationDetailItem | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
 
   // Update local registration state when prop changes
@@ -76,6 +80,46 @@ export default function RegistrationDetailModal({
     
     // Also update the parent list
     onUpdate();
+  };
+
+  const handleDeleteParticipant = async () => {
+    if (!participantToDelete) return;
+
+    setDeleteLoading(true);
+    setDeleteError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}/participants/${participantToDelete.linenum}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDeleteError(data.error || 'Failed to delete participant');
+        setDeleteLoading(false);
+        return;
+      }
+
+      // Update local registration state to remove the deleted participant
+      setCurrentRegistration(prev => ({
+        ...prev,
+        regd: prev.regd?.filter(p => p.linenum !== participantToDelete.linenum),
+      }));
+
+      // Close delete modal
+      setParticipantToDelete(null);
+      setDeleteLoading(false);
+      
+      // Update parent list
+      onUpdate();
+    } catch (err) {
+      setDeleteError('An error occurred. Please try again.');
+      setDeleteLoading(false);
+    }
   };
 
 
@@ -209,6 +253,9 @@ export default function RegistrationDetailModal({
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           T-Shirt Size
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -225,6 +272,17 @@ export default function RegistrationDetailModal({
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.tshirtsize || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button
+                              onClick={() => setParticipantToDelete(item)}
+                              className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
+                              title="Delete participant"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -254,6 +312,70 @@ export default function RegistrationDetailModal({
           onClose={() => setShowApprovalModal(false)}
           onSuccess={handleApprovalSuccess}
         />
+      )}
+
+      {/* Delete Participant Confirmation Modal */}
+      {participantToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Delete Participant
+            </h2>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete this participant?
+              </p>
+              <div className="bg-gray-50 p-3 rounded-md">
+                <p className="text-sm font-medium text-gray-900">
+                  {participantToDelete.lastname}, {participantToDelete.firstname} {participantToDelete.middleinit || ''}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {participantToDelete.designation || 'No designation'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-red-600 mb-4">
+              This action cannot be undone.
+            </p>
+
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{deleteError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setParticipantToDelete(null);
+                  setDeleteError('');
+                }}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteParticipant}
+                disabled={deleteLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Deleting…</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
