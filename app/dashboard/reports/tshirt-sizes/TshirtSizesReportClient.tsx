@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
+import Pagination from '@/components/Pagination';
 
 type ConferenceSummary = {
   confcode: string;
@@ -28,8 +29,15 @@ export default function TshirtSizesReportClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>('all');
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
+
+  // Reset pagination when conference changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedConfcode]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -91,6 +99,13 @@ export default function TshirtSizesReportClient({
     });
     return entries;
   }, [summary]);
+
+  // Pagination calculations
+  const totalItems = sizeRows.length;
+  const itemsPerPageNum = itemsPerPage === 'all' ? totalItems : itemsPerPage;
+  const startIndex = itemsPerPage === 'all' ? 0 : (currentPage - 1) * itemsPerPageNum;
+  const endIndex = itemsPerPage === 'all' ? totalItems : startIndex + itemsPerPageNum;
+  const paginatedSizeRows = sizeRows.slice(startIndex, endIndex);
 
   const handleExportExcel = () => {
     if (!selectedConfcode || !summary || sizeRows.length === 0) return;
@@ -239,7 +254,7 @@ export default function TshirtSizesReportClient({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sizeRows.map((row) => (
+                  {paginatedSizeRows.map((row) => (
                     <tr key={row.size} className="hover:bg-gray-50">
                       <td className="px-3 sm:px-4 py-3 text-sm text-gray-900 font-medium">
                         {row.size}
@@ -262,6 +277,16 @@ export default function TshirtSizesReportClient({
                 </tfoot>
               </table>
             </div>
+          </div>
+          <div className="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <Pagination
+              totalItems={totalItems}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              itemLabel="sizes"
+            />
           </div>
         </div>
       )}

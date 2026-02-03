@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
+import Pagination from '@/components/Pagination';
 
 interface Participant {
   [key: string]: any;
@@ -38,9 +39,72 @@ export default function RejectedParticipantsClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get the selected conference object
   const selectedConference = conferences.find(c => c.confcode === selectedConfcode);
+
+  // Filter participants based on search query
+  const filteredParticipants = participants.filter((participant) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Support prefix searches like "regid:01035573" or "province:sarangani"
+    if (query.startsWith('regid:')) {
+      const regidQuery = query.replace('regid:', '').trim();
+      const regid = (participant.registration?.regid || '').toLowerCase();
+      return regid.includes(regidQuery);
+    }
+    if (query.startsWith('province:')) {
+      const provinceQuery = query.replace('province:', '').trim();
+      const province = (participant.province || '').toLowerCase();
+      return province.includes(provinceQuery);
+    }
+    if (query.startsWith('lgu:')) {
+      const lguQuery = query.replace('lgu:', '').trim();
+      const lgu = (participant.lgu || '').toLowerCase();
+      return lgu.includes(lguQuery);
+    }
+    if (query.startsWith('remarks:')) {
+      const remarksQuery = query.replace('remarks:', '').trim();
+      const remarks = (participant.registration?.remarks || '').toLowerCase();
+      return remarks.includes(remarksQuery);
+    }
+    
+    // General search across all fields
+    const name = [participant.lastname, participant.firstname, participant.middleinit]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const designation = (participant.designation || '').toLowerCase();
+    const province = (participant.province || '').toLowerCase();
+    const lgu = (participant.lgu || '').toLowerCase();
+    const regid = (participant.registration?.regid || '').toLowerCase();
+    const remarks = (participant.registration?.remarks || '').toLowerCase();
+    
+    return (
+      name.includes(query) ||
+      designation.includes(query) ||
+      province.includes(query) ||
+      lgu.includes(query) ||
+      regid.includes(query) ||
+      remarks.includes(query)
+    );
+  });
+
+  // Pagination calculations
+  const totalItems = filteredParticipants.length;
+  const itemsPerPageNum = itemsPerPage === 'all' ? totalItems : itemsPerPage;
+  const startIndex = itemsPerPage === 'all' ? 0 : (currentPage - 1) * itemsPerPageNum;
+  const endIndex = itemsPerPage === 'all' ? totalItems : startIndex + itemsPerPageNum;
+  const paginatedParticipants = filteredParticipants.slice(startIndex, endIndex);
+
+  // Reset to page 1 when conference or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedConfcode, searchQuery]);
 
   useEffect(() => {
     const fetchParticipants = async () => {
@@ -224,6 +288,45 @@ export default function RejectedParticipantsClient({
         </div>
       )}
 
+      {/* Search Input */}
+      {!loading && participants.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+          <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+            Search Participants
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              id="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, designation, or use regid:xxx, province:xxx, lgu:xxx, remarks:xxx"
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 bg-white text-gray-900"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="mt-2 text-sm text-gray-500">
+              Found {filteredParticipants.length} of {participants.length} participants
+            </p>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800">{error}</p>
@@ -237,6 +340,16 @@ export default function RejectedParticipantsClient({
       ) : participants.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
           <p className="text-gray-500">No rejected registrations found for this conference.</p>
+        </div>
+      ) : filteredParticipants.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+          <p className="text-gray-500">No participants match your search criteria.</p>
+          <button
+            onClick={() => setSearchQuery('')}
+            className="mt-2 text-red-600 hover:text-red-800 text-sm font-medium"
+          >
+            Clear search
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -265,7 +378,7 @@ export default function RejectedParticipantsClient({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {participants.map((participant, index) => (
+                {paginatedParticipants.map((participant, index) => (
                   <tr key={`${participant.regid}-${participant.linenum}-${index}`} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       {[participant.lastname, participant.firstname, participant.middleinit]
@@ -293,9 +406,14 @@ export default function RejectedParticipantsClient({
             </table>
           </div>
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">{participants.length}</span> rejected participant{participants.length !== 1 ? 's' : ''}
-            </p>
+            <Pagination
+              totalItems={totalItems}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              itemLabel="participants"
+            />
           </div>
         </div>
       )}

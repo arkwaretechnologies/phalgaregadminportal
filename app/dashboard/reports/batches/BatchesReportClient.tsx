@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
+import Pagination from '@/components/Pagination';
 
 interface Participant {
   [key: string]: any;
@@ -46,6 +47,20 @@ export default function BatchesReportClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
+
+  // Pagination calculations
+  const totalItems = batches.length;
+  const itemsPerPageNum = itemsPerPage === 'all' ? totalItems : itemsPerPage;
+  const startIndex = itemsPerPage === 'all' ? 0 : (currentPage - 1) * itemsPerPageNum;
+  const endIndex = itemsPerPage === 'all' ? totalItems : startIndex + itemsPerPageNum;
+  const paginatedBatches = batches.slice(startIndex, endIndex);
+
+  // Reset to page 1 when conference changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedConfcode]);
 
   useEffect(() => {
     const fetchBatches = async () => {
@@ -193,7 +208,19 @@ export default function BatchesReportClient({
         </div>
       ) : (
         <div className="space-y-4">
-          {batches.map((batch) => (
+          {/* Pagination at top */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+            <Pagination
+              totalItems={totalItems}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              itemLabel="batches"
+            />
+          </div>
+
+          {paginatedBatches.map((batch) => (
             <div
               key={batch.batchnum}
               className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
