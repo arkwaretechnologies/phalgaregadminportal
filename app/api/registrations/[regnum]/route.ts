@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { RegistrationDetail } from '@/types';
 
+// Simple email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
 
@@ -128,4 +131,99 @@ export async function GET(
   }
 }
 
+// PATCH - Update registration contact details (email and contactnum only)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { regnum: string } }
+) {
+  try {
+    // Check authentication and role - only admin can update
+    await requireAuth(['admin']);
 
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const { email, contactnum } = body as {
+      email?: string;
+      contactnum?: string;
+    };
+
+    // Validate at least one field is being updated
+    if (email === undefined && contactnum === undefined) {
+      return NextResponse.json(
+        { error: 'At least one field (email or contactnum) must be provided' },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format if provided
+    if (email !== undefined && email !== null && email.trim() !== '') {
+      if (!EMAIL_REGEX.test(email.trim())) {
+        return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+      }
+    }
+
+    // Validate phone number if provided (must be 11 digits)
+    if (contactnum !== undefined && contactnum !== null && contactnum.trim() !== '') {
+      const digitsOnly = contactnum.trim().replace(/\D/g, '');
+      if (digitsOnly.length !== 11) {
+        return NextResponse.json(
+          { error: 'Contact number must be exactly 11 digits' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Find the registration by regid
+    const decodedRegnum = decodeURIComponent(params.regnum);
+
+    const { data: existingReg, error: findError } = await supabase
+      .from('regh')
+      .select('regid')
+      .eq('regid', decodedRegnum)
+      .maybeSingle();
+
+    if (findError || !existingReg) {
+      return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
+    }
+
+    // Build update object with only provided fields
+    const updateData: Record<string, string | null> = {};
+    if (email !== undefined) {
+      updateData.email = email?.trim() || null;
+    }
+    if (contactnum !== undefined) {
+      // Store only digits for consistency
+      updateData.contactnum = contactnum?.trim().replace(/\D/g, '') || null;
+    }
+
+    // Update the registration
+    const { data: updatedReg, error: updateError } = await supabase
+      .from('regh')
+      .update(updateData)
+      .eq('regid', decodedRegnum)
+      .select('regid, email, contactnum')
+      .single();
+
+    if (updateError) {
+      console.error('Registration update error:', updateError);
+      return NextResponse.json({ error: 'Failed to update registration' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      message: 'Contact details updated successfully',
+      registration: updatedReg,
+    });
+  } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    console.error('Registration PATCH error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -49,18 +49,32 @@ export default function BatchesReportClient({
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Pagination calculations
-  const totalItems = batches.length;
+  // Filter batches based on search term (by regid or contactperson)
+  const filteredBatches = batches.filter((batch) => {
+    if (!searchTerm.trim()) return true;
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Check if any registration in this batch matches the search term
+    return batch.registrations.some((reg) => {
+      const regidMatch = reg.regid?.toLowerCase().includes(searchLower);
+      const contactMatch = reg.contactperson?.toLowerCase().includes(searchLower);
+      return regidMatch || contactMatch;
+    });
+  });
+
+  // Pagination calculations (applied to filtered batches)
+  const totalItems = filteredBatches.length;
   const itemsPerPageNum = itemsPerPage === 'all' ? totalItems : itemsPerPage;
   const startIndex = itemsPerPage === 'all' ? 0 : (currentPage - 1) * itemsPerPageNum;
   const endIndex = itemsPerPage === 'all' ? totalItems : startIndex + itemsPerPageNum;
-  const paginatedBatches = batches.slice(startIndex, endIndex);
+  const paginatedBatches = filteredBatches.slice(startIndex, endIndex);
 
-  // Reset to page 1 when conference changes
+  // Reset to page 1 when conference or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedConfcode]);
+  }, [selectedConfcode, searchTerm]);
 
   useEffect(() => {
     const fetchBatches = async () => {
@@ -100,6 +114,7 @@ export default function BatchesReportClient({
 
   const handleConferenceChange = (confcode: string) => {
     setSelectedConfcode(confcode);
+    setSearchTerm(''); // Clear search when changing conference
     const params = new URLSearchParams(searchParams.toString());
     params.set('confcode', confcode);
     router.push(`/dashboard/reports/batches?${params.toString()}`);
@@ -123,6 +138,10 @@ export default function BatchesReportClient({
 
   // Calculate total accepted participants across all batches
   const totalAcceptedParticipants = batches.reduce((sum, batch) => sum + batch.participant_count, 0);
+  
+  // Calculate filtered totals when search is active
+  const filteredAcceptedParticipants = filteredBatches.reduce((sum, batch) => sum + batch.participant_count, 0);
+  const isSearchActive = searchTerm.trim().length > 0;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -142,22 +161,55 @@ export default function BatchesReportClient({
         </div>
       </div>
 
-      {/* Conference Filter */}
+      {/* Conference Filter and Search */}
       <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Conference
-        </label>
-        <select
-          value={selectedConfcode || ''}
-          onChange={(e) => handleConferenceChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
-        >
-          {conferences.map((conference) => (
-            <option key={conference.confcode} value={conference.confcode}>
-              {conference.confcode} - {conference.name || 'Unnamed Conference'}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Conference
+            </label>
+            <select
+              value={selectedConfcode || ''}
+              onChange={(e) => handleConferenceChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+            >
+              {conferences.map((conference) => (
+                <option key={conference.confcode} value={conference.confcode}>
+                  {conference.confcode} - {conference.name || 'Unnamed Conference'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search by Reg ID or Contact Person
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Enter Reg ID or Contact Person name..."
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Summary Statistics */}
@@ -166,8 +218,19 @@ export default function BatchesReportClient({
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Batches</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{batches.length}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  {isSearchActive ? 'Matching Batches' : 'Total Batches'}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {isSearchActive ? (
+                    <>
+                      {filteredBatches.length}
+                      <span className="text-sm font-normal text-gray-500 ml-2">of {batches.length}</span>
+                    </>
+                  ) : (
+                    batches.length
+                  )}
+                </p>
               </div>
               <div className="p-3 bg-indigo-100 rounded-lg">
                 <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -179,8 +242,19 @@ export default function BatchesReportClient({
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Accepted Participants</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{totalAcceptedParticipants}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  {isSearchActive ? 'Matching Participants' : 'Total Accepted Participants'}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {isSearchActive ? (
+                    <>
+                      {filteredAcceptedParticipants}
+                      <span className="text-sm font-normal text-gray-500 ml-2">of {totalAcceptedParticipants}</span>
+                    </>
+                  ) : (
+                    totalAcceptedParticipants
+                  )}
+                </p>
               </div>
               <div className="p-3 bg-purple-100 rounded-lg">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,6 +279,22 @@ export default function BatchesReportClient({
       ) : batches.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
           <p className="text-gray-500">No batches found for this conference.</p>
+        </div>
+      ) : filteredBatches.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
+          <div className="flex flex-col items-center">
+            <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <p className="text-gray-500 mb-2">No batches match your search criteria.</p>
+            <p className="text-sm text-gray-400">Try searching for a different Reg ID or Contact Person name.</p>
+            <button
+              onClick={() => setSearchTerm('')}
+              className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+            >
+              Clear Search
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

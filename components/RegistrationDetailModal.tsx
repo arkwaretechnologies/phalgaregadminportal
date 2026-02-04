@@ -26,11 +26,83 @@ export default function RegistrationDetailModal({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Contact edit state
+  const [showContactEditModal, setShowContactEditModal] = useState(false);
+  const [contactEmail, setContactEmail] = useState(registration.email || '');
+  const [contactPhone, setContactPhone] = useState(registration.contactnum || '');
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState('');
+  const [contactSuccess, setContactSuccess] = useState('');
+
 
   // Update local registration state when prop changes
   useEffect(() => {
     setCurrentRegistration(registration);
+    setContactEmail(registration.email || '');
+    setContactPhone(registration.contactnum || '');
   }, [registration]);
+
+  const openContactEditModal = () => {
+    setContactEmail(currentRegistration.email || '');
+    setContactPhone(currentRegistration.contactnum || '');
+    setContactError('');
+    setContactSuccess('');
+    setShowContactEditModal(true);
+  };
+
+  const closeContactEditModal = () => {
+    setShowContactEditModal(false);
+    setContactError('');
+    setContactSuccess('');
+  };
+
+  const handleSaveContactDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactSaving(true);
+    setContactError('');
+    setContactSuccess('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: contactEmail.trim() || null,
+            contactnum: contactPhone.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setContactError(data.error || 'Failed to update contact details');
+        setContactSaving(false);
+        return;
+      }
+
+      // Update local state with new values
+      setCurrentRegistration(prev => ({
+        ...prev,
+        email: contactEmail.trim() || null,
+        contactnum: contactPhone.trim().replace(/\D/g, '') || null,
+      }));
+
+      setContactSuccess('Contact details updated successfully');
+      setContactSaving(false);
+      
+      // Close modal after brief delay to show success and update parent
+      setTimeout(() => {
+        closeContactEditModal();
+        onUpdate();
+      }, 1000);
+    } catch (err) {
+      setContactError('An error occurred. Please try again.');
+      setContactSaving(false);
+    }
+  };
 
 
   const formatDate = (date: string | null) => {
@@ -191,11 +263,35 @@ export default function RegistrationDetailModal({
                   <p className="text-base font-medium text-gray-900">{currentRegistration.contactperson || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Contact Number</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-gray-500">Contact Number</p>
+                    <button
+                      onClick={openContactEditModal}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                      title="Edit contact details"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.contactnum || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Email</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-gray-500">Email</p>
+                    <button
+                      onClick={openContactEditModal}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                      title="Edit contact details"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.email || 'N/A'}</p>
                 </div>
                 {currentRegistration.confcode && (
@@ -378,6 +474,90 @@ export default function RegistrationDetailModal({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contact Details Modal */}
+      {showContactEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto my-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit Contact Details
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Update email and phone number for the contact person
+              </p>
+            </div>
+            <form onSubmit={handleSaveContactDetails} className="p-6 space-y-4">
+              {contactError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">{contactError}</p>
+                </div>
+              )}
+              {contactSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">{contactSuccess}</p>
+                </div>
+              )}
+              <div>
+                <label htmlFor="modal_contact_email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="modal_contact_email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="e.g., contact@example.com"
+                  disabled={contactSaving}
+                />
+              </div>
+              <div>
+                <label htmlFor="modal_contact_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Number
+                </label>
+                <input
+                  type="text"
+                  id="modal_contact_phone"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="e.g., 09123456789"
+                  maxLength={11}
+                  disabled={contactSaving}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be exactly 11 digits (e.g., 09123456789)
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeContactEditModal}
+                  disabled={contactSaving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={contactSaving}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {contactSaving ? (
+                    <>
+                      <LoadingSpinner />
+                      <span>Saving…</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

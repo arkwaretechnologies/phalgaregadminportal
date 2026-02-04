@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
@@ -16,6 +16,8 @@ type LguData = {
   lgu: string;
   count: number;
 };
+
+type CountByMode = 'batch' | 'participant';
 
 interface ApprovedLocationClientProps {
   initialConferences: Conference[];
@@ -37,6 +39,7 @@ export default function ApprovedLocationClient({
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<'province' | 'lgu'>('province');
+  const [countBy, setCountBy] = useState<CountByMode>('batch');
   
   // Pagination state for Province tab
   const [provinceCurrentPage, setProvinceCurrentPage] = useState(1);
@@ -62,11 +65,11 @@ export default function ApprovedLocationClient({
   const lguEndIndex = lguItemsPerPage === 'all' ? lguTotalItems : lguStartIndex + lguItemsPerPageNum;
   const paginatedLguData = lguData.slice(lguStartIndex, lguEndIndex);
 
-  // Reset pagination when conference changes
+  // Reset pagination when conference or countBy changes
   useEffect(() => {
     setProvinceCurrentPage(1);
     setLguCurrentPage(1);
-  }, [selectedConfcode]);
+  }, [selectedConfcode, countBy]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,6 +87,7 @@ export default function ApprovedLocationClient({
       try {
         const url = new URL('/api/reports/approved-location', window.location.origin);
         url.searchParams.set('confcode', selectedConfcode);
+        url.searchParams.set('countBy', countBy);
 
         const response = await fetch(url.toString());
         const data = await response.json();
@@ -111,7 +115,7 @@ export default function ApprovedLocationClient({
     };
 
     fetchData();
-  }, [selectedConfcode]);
+  }, [selectedConfcode, countBy]);
 
   const handleConferenceChange = (confcode: string) => {
     setSelectedConfcode(confcode);
@@ -120,6 +124,13 @@ export default function ApprovedLocationClient({
     router.push(`/dashboard/reports/approved-location?${params.toString()}`);
   };
 
+  const handleCountByChange = (mode: CountByMode) => {
+    setCountBy(mode);
+  };
+
+  const countByLabel = countBy === 'batch' ? 'Batches' : 'Participants';
+  const countByLabelSingular = countBy === 'batch' ? 'Batch' : 'Participant';
+
   const handleExportExcel = () => {
     if (!selectedConfcode || (provinceData.length === 0 && lguData.length === 0)) return;
 
@@ -127,52 +138,61 @@ export default function ApprovedLocationClient({
     try {
       const confName = selectedConference?.name || selectedConfcode;
       const wb = XLSX.utils.book_new();
-
-      // Sheet 1: By Province
-      const provinceAoa: (string | number)[][] = [
-        [`Conference: ${confName}`],
-        [''],
-        ['Approved Registrations by Province'],
-        [''],
-        ['Province', 'Approved Count'],
-        ...provinceData.map((row) => [row.province, row.count]),
-        ['TOTAL', totalApproved],
-      ];
-
-      const wsProvince = XLSX.utils.aoa_to_sheet(provinceAoa);
-      wsProvince['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } },
-      ];
-      wsProvince['!cols'] = [{ wch: 35 }, { wch: 18 }];
-      wsProvince['!autofilter'] = { ref: 'A5:B5' };
-
-      XLSX.utils.book_append_sheet(wb, wsProvince, 'By Province');
-
-      // Sheet 2: By LGU
-      const lguAoa: (string | number)[][] = [
-        [`Conference: ${confName}`],
-        [''],
-        ['Approved Registrations by LGU'],
-        [''],
-        ['Province', 'LGU', 'Approved Count'],
-        ...lguData.map((row) => [row.province, row.lgu, row.count]),
-        ['TOTAL', '', totalApproved],
-      ];
-
-      const wsLgu = XLSX.utils.aoa_to_sheet(lguAoa);
-      wsLgu['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
-      ];
-      wsLgu['!cols'] = [{ wch: 35 }, { wch: 35 }, { wch: 18 }];
-      wsLgu['!autofilter'] = { ref: 'A5:C5' };
-
-      XLSX.utils.book_append_sheet(wb, wsLgu, 'By LGU');
-
       const safeConfName = confName.replace(/[^a-zA-Z0-9]/g, '_');
-      const filename = `${safeConfName}_approved_by_location.xlsx`;
-      XLSX.writeFile(wb, filename);
+
+      if (activeTab === 'province') {
+        // Export Province data only
+        const provinceAoa: (string | number)[][] = [
+          [`Conference: ${confName}`],
+          [`Count By: ${countByLabel}`],
+          [''],
+          ['Approved by Province'],
+          [''],
+          ['Province', `${countByLabelSingular} Count`],
+          ...provinceData.map((row) => [row.province, row.count]),
+          ['TOTAL', totalApproved],
+        ];
+
+        const wsProvince = XLSX.utils.aoa_to_sheet(provinceAoa);
+        wsProvince['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } },
+        ];
+        wsProvince['!cols'] = [{ wch: 35 }, { wch: 18 }];
+        wsProvince['!autofilter'] = { ref: 'A6:B6' };
+
+        XLSX.utils.book_append_sheet(wb, wsProvince, 'By Province');
+
+        const filename = `${safeConfName}_approved_by_province_${countBy}.xlsx`;
+        XLSX.writeFile(wb, filename);
+      } else {
+        // Export LGU data only
+        const lguAoa: (string | number)[][] = [
+          [`Conference: ${confName}`],
+          [`Count By: ${countByLabel}`],
+          [''],
+          ['Approved by LGU'],
+          [''],
+          ['Province', 'LGU', `${countByLabelSingular} Count`],
+          ...lguData.map((row) => [row.province, row.lgu, row.count]),
+          ['TOTAL', '', totalApproved],
+        ];
+
+        const wsLgu = XLSX.utils.aoa_to_sheet(lguAoa);
+        wsLgu['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
+        ];
+        wsLgu['!cols'] = [{ wch: 35 }, { wch: 35 }, { wch: 18 }];
+        wsLgu['!autofilter'] = { ref: 'A6:C6' };
+
+        XLSX.utils.book_append_sheet(wb, wsLgu, 'By LGU');
+
+        const filename = `${safeConfName}_approved_by_lgu_${countBy}.xlsx`;
+        XLSX.writeFile(wb, filename);
+      }
     } catch (err: any) {
       console.error('Export error:', err);
       setError(err?.message || 'Failed to export approved location data');
@@ -227,22 +247,42 @@ export default function ApprovedLocationClient({
         </div>
       </div>
 
-      {/* Conference Filter */}
+      {/* Filters */}
       <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Conference
-        </label>
-        <select
-          value={selectedConfcode || ''}
-          onChange={(e) => handleConferenceChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 text-sm sm:text-base"
-        >
-          {conferences.map((conference) => (
-            <option key={conference.confcode} value={conference.confcode}>
-              {conference.confcode} - {conference.name || 'Unnamed Conference'}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Conference Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Conference
+            </label>
+            <select
+              value={selectedConfcode || ''}
+              onChange={(e) => handleConferenceChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 text-sm sm:text-base"
+            >
+              {conferences.map((conference) => (
+                <option key={conference.confcode} value={conference.confcode}>
+                  {conference.confcode} - {conference.name || 'Unnamed Conference'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Count By Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Count By
+            </label>
+            <select
+              value={countBy}
+              onChange={(e) => handleCountByChange(e.target.value as CountByMode)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white text-gray-900 text-sm sm:text-base"
+            >
+              <option value="batch">By Batch (Registration)</option>
+              <option value="participant">By Participant</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Conference Title */}
@@ -256,7 +296,7 @@ export default function ApprovedLocationClient({
           )}
           {!loading && (
             <p className="text-sm text-teal-700 mt-2">
-              Total Approved Registrations: <span className="font-bold">{totalApproved}</span>
+              Total Approved {countByLabel}: <span className="font-bold">{totalApproved}</span>
             </p>
           )}
         </div>
@@ -274,7 +314,7 @@ export default function ApprovedLocationClient({
         </div>
       ) : !hasData ? (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 text-center">
-          <p className="text-sm sm:text-base text-gray-500">No approved registrations found for this conference.</p>
+          <p className="text-sm sm:text-base text-gray-500">No approved {countBy === 'batch' ? 'registrations' : 'participants'} found for this conference.</p>
         </div>
       ) : (
         <>
@@ -316,7 +356,7 @@ export default function ApprovedLocationClient({
                           Province
                         </th>
                         <th className="px-3 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Approved Count
+                          {countByLabelSingular} Count
                         </th>
                       </tr>
                     </thead>
@@ -373,7 +413,7 @@ export default function ApprovedLocationClient({
                           LGU
                         </th>
                         <th className="px-3 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Approved Count
+                          {countByLabelSingular} Count
                         </th>
                       </tr>
                     </thead>

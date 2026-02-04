@@ -11,13 +11,118 @@ type LocationRow = {
   lgu: string | null;
 };
 
+type ParticipantRow = {
+  confcode: string | null;
+  province: string | null;
+  lgu: string | null;
+  regid: string | null;
+};
+
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(['admin', 'reviewer']);
 
     const confcode = request.nextUrl.searchParams.get('confcode');
+    const countBy = request.nextUrl.searchParams.get('countBy') || 'batch'; // 'batch' or 'participant'
 
-    // Query approved registrations from regh table
+    if (countBy === 'participant') {
+      // Count participants from regd table (only for approved registrations)
+      // First get all approved registration regids for the conference
+      let reghQuery = supabase
+        .from('regh')
+        .select('regid, confcode')
+        .eq('status', 'APPROVED')
+        .not('regid', 'is', null);
+
+      if (confcode) {
+        reghQuery = reghQuery.eq('confcode', confcode);
+      }
+
+      const { data: approvedRegs, error: reghError } = await reghQuery;
+
+      if (reghError) {
+        console.error('Error fetching approved registrations:', reghError);
+        return NextResponse.json({ error: 'Failed to fetch approved registrations' }, { status: 500 });
+      }
+
+      if (!approvedRegs || approvedRegs.length === 0) {
+        return NextResponse.json({
+          provinceData: [],
+          lguData: [],
+          totalApproved: 0,
+          totalProvinces: 0,
+          totalLgus: 0,
+          countBy: 'participant',
+        });
+      }
+
+      const regids = approvedRegs.map(r => r.regid).filter(Boolean) as string[];
+
+      // Query participants from regd table for approved registrations
+      let regdQuery = supabase
+        .from('regd')
+        .select('confcode, province, lgu, regid')
+        .in('regid', regids)
+        .order('province', { ascending: true })
+        .order('lgu', { ascending: true });
+
+      if (confcode) {
+        regdQuery = regdQuery.eq('confcode', confcode);
+      }
+
+      const { data: participants, error: regdError } = await regdQuery;
+
+      if (regdError) {
+        console.error('Error fetching participants:', regdError);
+        return NextResponse.json({ error: 'Failed to fetch participants' }, { status: 500 });
+      }
+
+      const rows = (participants || []) as ParticipantRow[];
+
+      // Group by province and lgu
+      const byProvince: Record<string, number> = {};
+      const byLgu: Record<string, { province: string; lgu: string; count: number }> = {};
+
+      for (const row of rows) {
+        const province = row.province || 'UNSPECIFIED';
+        const lgu = row.lgu || 'UNSPECIFIED';
+
+        // Count by province
+        byProvince[province] = (byProvince[province] || 0) + 1;
+
+        // Count by LGU (with province for context)
+        const lguKey = `${province}|${lgu}`;
+        if (!byLgu[lguKey]) {
+          byLgu[lguKey] = { province, lgu, count: 0 };
+        }
+        byLgu[lguKey].count += 1;
+      }
+
+      // Convert to arrays and sort
+      const provinceData = Object.entries(byProvince)
+        .map(([province, count]) => ({ province, count }))
+        .sort((a, b) => a.province.localeCompare(b.province));
+
+      const lguData = Object.values(byLgu)
+        .sort((a, b) => {
+          const provinceCompare = a.province.localeCompare(b.province);
+          if (provinceCompare !== 0) return provinceCompare;
+          return a.lgu.localeCompare(b.lgu);
+        });
+
+      const totalApproved = rows.length;
+
+      return NextResponse.json({
+        provinceData,
+        lguData,
+        totalApproved,
+        totalProvinces: provinceData.length,
+        totalLgus: lguData.length,
+        countBy: 'participant',
+      });
+    }
+
+    // Default: Count by batch (approved registrations from regh table)
     let query = supabase
       .from('regh')
       .select('confcode, province, lgu')
@@ -78,6 +183,7 @@ export async function GET(request: NextRequest) {
       totalApproved,
       totalProvinces: provinceData.length,
       totalLgus: lguData.length,
+      countBy: 'batch',
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
