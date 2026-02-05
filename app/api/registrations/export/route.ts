@@ -5,6 +5,40 @@ import { requireAuth } from '@/lib/auth';
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
+// Helper function to fetch all records without Supabase's default 1000 row limit
+async function fetchAllRecords(
+  table: string,
+  queryBuilder: (query: any) => any,
+  pageSize: number = 1000
+): Promise<{ data: any[]; error: any }> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase.from(table).select('*');
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      // If we got fewer results than pageSize, we've reached the end
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
 // Helper function to escape CSV values
 function escapeCSV(value: any): string {
   if (value === null || value === undefined) {
@@ -41,18 +75,17 @@ export async function GET(request: NextRequest) {
     const confcode = searchParams.get('confcode');
     const format = (searchParams.get('format') || 'csv').toLowerCase(); // csv | sql
 
-    // Fetch approved registrations, optionally filtered by conference
-    let query = supabase
-      .from('regh')
-      .select('*')
-      .eq('status', 'APPROVED')
-      .order('regdate', { ascending: false });
-
-    if (confcode) {
-      query = query.eq('confcode', confcode);
-    }
-
-    const { data: approvedRegistrations, error: regError } = await query;
+    // Fetch approved registrations, optionally filtered by conference (no row limit)
+    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
+      'regh',
+      (query) => {
+        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
+    );
 
     if (regError) {
       console.error('Error fetching approved registrations:', regError);

@@ -5,6 +5,39 @@ import { requireAuth } from '@/lib/auth';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+// Helper function to fetch all records without Supabase's default 1000 row limit
+async function fetchAllRecords(
+  table: string,
+  queryBuilder: (query: any) => any,
+  pageSize: number = 1000
+): Promise<{ data: any[]; error: any }> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase.from(table).select('*');
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and role
@@ -13,19 +46,17 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
 
-    // Build query for approved registrations
-    let query = supabase
-      .from('regh')
-      .select('*')
-      .eq('status', 'APPROVED')
-      .order('regdate', { ascending: false });
-
-    // Filter by conference code if provided
-    if (confcode) {
-      query = query.eq('confcode', confcode);
-    }
-
-    const { data: approvedRegistrations, error: regError } = await query;
+    // Fetch approved registrations (no row limit)
+    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
+      'regh',
+      (query) => {
+        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
+    );
 
     if (regError) {
       console.error('Error fetching approved registrations:', regError);
@@ -41,12 +72,16 @@ export async function GET(request: NextRequest) {
     let allParticipants: any[] = [];
 
     if (regids.length > 0) {
-      const { data: regdRows, error: regdError } = await supabase
-        .from('regd')
-        .select('*')
-        .in('regid', regids)
-        .order('regid', { ascending: true })
-        .order('linenum', { ascending: true });
+      // Fetch all participants (no row limit)
+      const { data: regdRows, error: regdError } = await fetchAllRecords(
+        'regd',
+        (query) => {
+          return query
+            .in('regid', regids)
+            .order('regid', { ascending: true })
+            .order('linenum', { ascending: true });
+        }
+      );
 
       if (regdError) {
         console.error('Error fetching participants:', regdError);

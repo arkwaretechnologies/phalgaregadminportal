@@ -197,9 +197,7 @@ export async function PATCH(
     if (contactnum !== undefined) {
       // Store only digits for consistency
       updateData.contactnum = contactnum?.trim().replace(/\D/g, '') || null;
-    }
-
-    // Update the registration
+    }    // Update the registration
     const { data: updatedReg, error: updateError } = await supabase
       .from('regh')
       .update(updateData)

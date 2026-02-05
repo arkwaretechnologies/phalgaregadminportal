@@ -5,6 +5,40 @@ import { requireAuth } from '@/lib/auth';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+// Helper function to fetch all records without Supabase's default 1000 row limit
+async function fetchAllRecords(
+  table: string,
+  selectFields: string,
+  queryBuilder: (query: any) => any,
+  pageSize: number = 1000
+): Promise<{ data: any[]; error: any }> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase.from(table).select(selectFields);
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
 type LocationRow = {
   confcode: string | null;
   province: string | null;
@@ -27,18 +61,18 @@ export async function GET(request: NextRequest) {
 
     if (countBy === 'participant') {
       // Count participants from regd table (only for approved registrations)
-      // First get all approved registration regids for the conference
-      let reghQuery = supabase
-        .from('regh')
-        .select('regid, confcode')
-        .eq('status', 'APPROVED')
-        .not('regid', 'is', null);
-
-      if (confcode) {
-        reghQuery = reghQuery.eq('confcode', confcode);
-      }
-
-      const { data: approvedRegs, error: reghError } = await reghQuery;
+      // First get all approved registration regids for the conference (no row limit)
+      const { data: approvedRegs, error: reghError } = await fetchAllRecords(
+        'regh',
+        'regid, confcode',
+        (query) => {
+          query = query.eq('status', 'APPROVED').not('regid', 'is', null);
+          if (confcode) {
+            query = query.eq('confcode', confcode);
+          }
+          return query;
+        }
+      );
 
       if (reghError) {
         console.error('Error fetching approved registrations:', reghError);
@@ -58,19 +92,21 @@ export async function GET(request: NextRequest) {
 
       const regids = approvedRegs.map(r => r.regid).filter(Boolean) as string[];
 
-      // Query participants from regd table for approved registrations
-      let regdQuery = supabase
-        .from('regd')
-        .select('confcode, province, lgu, regid')
-        .in('regid', regids)
-        .order('province', { ascending: true })
-        .order('lgu', { ascending: true });
-
-      if (confcode) {
-        regdQuery = regdQuery.eq('confcode', confcode);
-      }
-
-      const { data: participants, error: regdError } = await regdQuery;
+      // Query participants from regd table for approved registrations (no row limit)
+      const { data: participants, error: regdError } = await fetchAllRecords(
+        'regd',
+        'confcode, province, lgu, regid',
+        (query) => {
+          query = query
+            .in('regid', regids)
+            .order('province', { ascending: true })
+            .order('lgu', { ascending: true });
+          if (confcode) {
+            query = query.eq('confcode', confcode);
+          }
+          return query;
+        }
+      );
 
       if (regdError) {
         console.error('Error fetching participants:', regdError);
@@ -122,20 +158,22 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Default: Count by batch (approved registrations from regh table)
-    let query = supabase
-      .from('regh')
-      .select('confcode, province, lgu')
-      .eq('status', 'APPROVED')
-      .order('confcode', { ascending: true })
-      .order('province', { ascending: true })
-      .order('lgu', { ascending: true });
-
-    if (confcode) {
-      query = query.eq('confcode', confcode);
-    }
-
-    const { data, error } = await query;
+    // Default: Count by batch (approved registrations from regh table) - no row limit
+    const { data, error } = await fetchAllRecords(
+      'regh',
+      'confcode, province, lgu',
+      (query) => {
+        query = query
+          .eq('status', 'APPROVED')
+          .order('confcode', { ascending: true })
+          .order('province', { ascending: true })
+          .order('lgu', { ascending: true });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
+    );
 
     if (error) {
       console.error('Error fetching approved location data:', error);

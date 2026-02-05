@@ -5,6 +5,40 @@ import { requireAuth } from '@/lib/auth';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+// Helper function to fetch all records without Supabase's default 1000 row limit
+async function fetchAllRecords(
+  table: string,
+  selectFields: string,
+  queryBuilder: (query: any) => any,
+  pageSize: number = 1000
+): Promise<{ data: any[]; error: any }> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase.from(table).select(selectFields);
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
 type TshirtSizeRow = {
   confcode: string | null;
   tshirtsize: string | null;
@@ -17,17 +51,20 @@ export async function GET(request: NextRequest) {
 
     const confcode = request.nextUrl.searchParams.get('confcode');
 
-    let query = supabase
-      .from('report_tshirt_size_counts')
-      .select('confcode,tshirtsize,participant_count')
-      .order('confcode', { ascending: true })
-      .order('tshirtsize', { ascending: true, nullsFirst: false });
-
-    if (confcode) {
-      query = query.eq('confcode', confcode);
-    }
-
-    const { data, error } = await query;
+    // Fetch all t-shirt size counts (no row limit)
+    const { data, error } = await fetchAllRecords(
+      'report_tshirt_size_counts',
+      'confcode,tshirtsize,participant_count',
+      (query) => {
+        query = query
+          .order('confcode', { ascending: true })
+          .order('tshirtsize', { ascending: true, nullsFirst: false });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
+    );
 
     if (error) {
       console.error('Error fetching t-shirt size counts:', error);
