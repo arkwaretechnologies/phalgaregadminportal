@@ -195,6 +195,11 @@ export default function RegistrationDetailModal({
   };
 
 
+  // Fixed registration fee per participant (to be made dynamic per conference later)
+  const REGISTRATION_FEE = 7500;
+  const participantCount = currentRegistration.regd?.length ?? 0;
+  const expectedTotalPayment = participantCount * REGISTRATION_FEE;
+
   if (!isOpen) return null;
 
   return (
@@ -208,6 +213,12 @@ export default function RegistrationDetailModal({
               <p className="text-sm text-gray-600 mt-1 break-words">
                 Registration ID: {currentRegistration.regid}
               </p>
+              {participantCount > 0 && (
+                <p className="text-sm font-medium text-gray-900 mt-2">
+                  Expected total payment: ₱{expectedTotalPayment.toLocaleString('en-PH')}
+                  <span className="text-gray-500 font-normal"> ({participantCount} × ₱{REGISTRATION_FEE.toLocaleString('en-PH')})</span>
+                </p>
+              )}
             </div>
             <button
               onClick={onClose}

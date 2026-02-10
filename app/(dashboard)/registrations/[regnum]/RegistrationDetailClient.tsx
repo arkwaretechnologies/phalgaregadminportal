@@ -10,6 +10,9 @@ interface RegistrationDetailClientProps {
   registration: RegistrationDetail;
 }
 
+// Fixed registration fee per participant (to be made dynamic per conference later)
+const REGISTRATION_FEE = 7500;
+
 export default function RegistrationDetailClient({
   registration,
 }: RegistrationDetailClientProps) {
@@ -97,6 +100,12 @@ export default function RegistrationDetailClient({
             Registration Details
           </h1>
           <p className="text-sm text-gray-600 mt-1">Registration ID: {registration.regid}</p>
+          {registration.regd && registration.regd.length > 0 && (
+            <p className="text-sm font-medium text-gray-900 mt-2">
+              Expected total payment: ₱{(registration.regd.length * REGISTRATION_FEE).toLocaleString('en-PH')}
+              <span className="text-gray-500 font-normal"> ({registration.regd.length} × ₱{REGISTRATION_FEE.toLocaleString('en-PH')})</span>
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
