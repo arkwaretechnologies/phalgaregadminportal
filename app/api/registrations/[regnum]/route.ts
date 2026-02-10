@@ -208,9 +208,7 @@ export async function PATCH(
     if (updateError) {
       console.error('Registration update error:', updateError);
       return NextResponse.json({ error: 'Failed to update registration' }, { status: 500 });
-    }
-
-    return NextResponse.json({
+    }    return NextResponse.json({
       message: 'Contact details updated successfully',
       registration: updatedReg,
     });
