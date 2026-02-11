@@ -66,9 +66,6 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
           <span>{remaining === null ? '—' : remaining}</span>
         )}
       </div>
-      <div className="mt-1 text-xs text-gray-500">
-        Registration limit: {loading ? '—' : limit === null ? '—' : limit}
-      </div>
     </div>
   );
 }
