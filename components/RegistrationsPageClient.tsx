@@ -52,8 +52,6 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
 
   const remaining = data?.remaining ?? null;
   const limit = data?.limit ?? null;
-  const used = data?.used ?? 0;
-
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 px-5 py-3 w-full sm:w-auto sm:min-w-[180px] text-left sm:text-right">
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -67,9 +65,6 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
         ) : (
           <span>{remaining === null ? '—' : remaining}</span>
         )}
-      </div>
-      <div className="mt-1 text-xs text-gray-500">
-        {limit === null ? 'No limit set for this conference' : `Used ${used} of ${limit}`}
       </div>
     </div>
   );
