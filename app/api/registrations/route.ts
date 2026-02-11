@@ -158,99 +158,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Auto-reject registrations that have passed 24 hours and are still PENDING
-    const now = new Date();
-    const processedRegistrations = await Promise.all(
-      (allRegistrations || []).map(async (reg: any) => {
-        // Normalize status to uppercase for comparison
-        const regStatus = reg.status?.toUpperCase() || null;
-        
-        if (regStatus === 'PENDING' && reg.regdate) {
-          const registrationTime = new Date(reg.regdate).getTime();
-          const deadline = registrationTime + 24 * 60 * 60 * 1000; // 24 hours
-          
-          if (now.getTime() > deadline) {
-            // Auto-reject expired registrations
-            // Only update if still PENDING to avoid race conditions
-            try {
-              const rejectionRemarks = 'We regret to inform you that your submission expired and rejected.';
-              
-              const { data: updatedRegs, error: updateError } = await supabase
-                .from('regh')
-                .update({
-                  status: 'REJECTED',
-                  remarks: rejectionRemarks,
-                })
-                .eq('regnum', reg.regnum)
-                .eq('status', 'PENDING') // Only update if still PENDING to prevent loops
-                .select();
-
-              if (updateError) {
-                console.error(`Failed to auto-reject registration ${reg.regnum}:`, updateError);
-                return reg;
-              }
-
-              if (updatedRegs && updatedRegs.length > 0) {
-                const autoRejectedReg = updatedRegs[0];
-                // Send email notification for auto-rejection (non-blocking)
-                console.log(`[AUTO-REJECT] Sending email for expired registration ${autoRejectedReg.regnum}`);
-                
-                // Fetch conference information if confcode exists
-                let conferenceInfo: {
-                  name: string | null;
-                  domain: string | null;
-                  venue: string | null;
-                  date_from: string | null;
-                  date_to: string | null;
-                } | null = null;
-                
-                if (autoRejectedReg.confcode) {
-                  try {
-                    const { data: conference, error: confError } = await supabase
-                      .from('conference')
-                      .select('name, domain, venue, date_from, date_to')
-                      .eq('confcode', autoRejectedReg.confcode)
-                      .single();
-                    
-                    if (!confError && conference) {
-                      conferenceInfo = conference;
-                    }
-                  } catch (err) {
-                    console.warn(`[AUTO-REJECT] Failed to fetch conference info for registration ${autoRejectedReg.regnum}:`, err);
-                  }
-                }
-                
-                sendStatusUpdateEmail({
-                  registration: autoRejectedReg as Registration,
-                  status: 'REJECTED',
-                  remarks: rejectionRemarks,
-                  conferenceName: conferenceInfo?.name || null,
-                  conferenceDomain: conferenceInfo?.domain || null,
-                  conferenceVenue: conferenceInfo?.venue || null,
-                  conferenceDateFrom: conferenceInfo?.date_from || null,
-                  conferenceDateTo: conferenceInfo?.date_to || null,
-                })
-                  .then((success) => {
-                    if (success) {
-                      console.log(`[AUTO-REJECT] Email sent successfully for registration ${autoRejectedReg.regnum}`);
-                    } else {
-                      console.error(`[AUTO-REJECT] Failed to send email for registration ${autoRejectedReg.regnum}`);
-                    }
-                  })
-                  .catch((emailError) => {
-                    console.error(`[AUTO-REJECT] Exception sending email for registration ${autoRejectedReg.regnum}:`, emailError);
-                  });
-                return autoRejectedReg;
-              }
-            } catch (err) {
-              console.error(`Failed to auto-reject registration ${reg.regnum}:`, err);
-            }
-          }
-        }
-        return reg;
-      })
-    );
-
     // Attach participant counts from regD (per regid) for display in the table.
     // Run ALL count queries in parallel for speed (this approach works reliably)
     const countsByRegid = new Map<string, number>();
@@ -258,7 +165,7 @@ export async function GET(request: NextRequest) {
     // Get unique regids from registrations
     const uniqueRegids = Array.from(
       new Set(
-        (processedRegistrations || [])
+        (allRegistrations || [])
           .map((r: any) => r?.regid)
           .filter((id: any) => id != null && id !== '')
       )
@@ -282,7 +189,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const finalRegistrations = (processedRegistrations || []).map((r: any) => {
+    const finalRegistrations = (allRegistrations || []).map((r: any) => {
       const regid = r?.regid;
       const regidKey = regid ? String(regid).trim() : null;
       const notification = Array.isArray(r.upload_notification)
