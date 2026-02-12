@@ -223,6 +223,16 @@ export default function DashboardLayout({
                       <span className="text-sm">All Approved Participants</span>
                     </Link>
                     <Link
+                      href="/dashboard/reports/pending"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/pending'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">All Pending Report</span>
+                    </Link>
+                    <Link
                       href="/dashboard/reports/rejected"
                       className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
                         pathname === '/dashboard/reports/rejected'
@@ -447,6 +457,17 @@ export default function DashboardLayout({
                     title="All Approved Participants"
                   >
                     <span className="text-sm">All Approved Participants</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/pending"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/pending'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="All Pending Report"
+                  >
+                    <span className="text-sm">All Pending Report</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/rejected"
