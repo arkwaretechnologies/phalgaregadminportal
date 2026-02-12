@@ -272,6 +272,16 @@ export default function DashboardLayout({
                     >
                       <span className="text-sm">Approved by Location</span>
                     </Link>
+                    <Link
+                      href="/dashboard/reports/pending-location"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/pending-location'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Pending by Location</span>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -512,6 +522,17 @@ export default function DashboardLayout({
                     title="Approved by Location"
                   >
                     <span className="text-sm">Approved by Location</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/pending-location"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/pending-location'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Pending by Location"
+                  >
+                    <span className="text-sm">Pending by Location</span>
                   </Link>
                 </div>
               )}
