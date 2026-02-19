@@ -51,12 +51,23 @@ export default function BatchesReportClient({
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Filter batches based on search term (by regid or contactperson)
+  // Filter batches based on search term (by batch number, regid, or contactperson)
   const filteredBatches = batches.filter((batch) => {
     if (!searchTerm.trim()) return true;
     const searchLower = searchTerm.toLowerCase().trim();
-    
-    // Check if any registration in this batch matches the search term
+
+    // Exact batch number match: "batch 2", "batch:2", or "batch: 2"
+    const batchPrefixMatch = searchLower.match(/^batch[\s:]*(\d+)$/);
+    if (batchPrefixMatch) {
+      return batch.batchnum === parseInt(batchPrefixMatch[1], 10);
+    }
+
+    // Plain number — exact batch match only (typing "2" won't match batch 12)
+    if (/^\d+$/.test(searchLower)) {
+      return batch.batchnum === parseInt(searchLower, 10);
+    }
+
+    // Otherwise search by regid or contactperson
     return batch.registrations.some((reg) => {
       const regidMatch = reg.regid?.toLowerCase().includes(searchLower);
       const contactMatch = reg.contactperson?.toLowerCase().includes(searchLower);
@@ -182,7 +193,7 @@ export default function BatchesReportClient({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search by Reg ID or Contact Person
+              Search by Batch Number, Reg ID, or Contact Person
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -194,7 +205,7 @@ export default function BatchesReportClient({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Enter Reg ID or Contact Person name..."
+                placeholder="Enter batch number (e.g. 2 or batch 2), Reg ID, or Contact Person..."
                 className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 placeholder-gray-400"
               />
               {searchTerm && (
@@ -287,7 +298,7 @@ export default function BatchesReportClient({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <p className="text-gray-500 mb-2">No batches match your search criteria.</p>
-            <p className="text-sm text-gray-400">Try searching for a different Reg ID or Contact Person name.</p>
+            <p className="text-sm text-gray-400">Try searching for a different batch number, Reg ID, or Contact Person name.</p>
             <button
               onClick={() => setSearchTerm('')}
               className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
