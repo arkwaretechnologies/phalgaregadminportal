@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
 
+    const view = searchParams.get('view') || 'participant';
+
     // Fetch approved registrations (no row limit)
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       'regh',
@@ -66,13 +68,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all regd rows for these registrations (by regid, not batchnum)
     const regids = (approvedRegistrations || []).map((r: any) => r?.regid).filter((id: any) => id);
 
     let allParticipants: any[] = [];
 
     if (regids.length > 0) {
-      // Fetch all participants (no row limit)
       const { data: regdRows, error: regdError } = await fetchAllRecords(
         'regd',
         (query) => {
@@ -90,7 +90,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Combine registration info with participant details
+    const totalRegistrations = (approvedRegistrations || []).length;
+    const totalParticipants = allParticipants.length;
+
+    if (view === 'registration') {
+      const participantCountMap: Record<string, number> = {};
+      allParticipants.forEach((p: any) => {
+        const regid = p.regid;
+        if (regid) {
+          participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
+        }
+      });
+
+      const registrationsWithCount = (approvedRegistrations || []).map((reg: any) => ({
+        regid: reg.regid,
+        batchnum: reg.batchnum,
+        confcode: reg.confcode,
+        province: reg.province,
+        lgu: reg.lgu,
+        contactperson: reg.contactperson,
+        contactnum: reg.contactnum,
+        email: reg.email,
+        regdate: reg.regdate,
+        participantCount: participantCountMap[reg.regid] || 0,
+      }));
+
+      return NextResponse.json({
+        view: 'registration',
+        registrations: registrationsWithCount,
+        total: registrationsWithCount.length,
+        totalRegistrations,
+        totalParticipants,
+      });
+    }
+
     const participantsWithRegInfo = allParticipants.map((participant: any) => {
       const registration = (approvedRegistrations || []).find((r: any) => r.regid === participant.regid);
       return {
@@ -110,8 +143,11 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
+      view: 'participant',
       participants: participantsWithRegInfo,
       total: participantsWithRegInfo.length,
+      totalRegistrations,
+      totalParticipants,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {

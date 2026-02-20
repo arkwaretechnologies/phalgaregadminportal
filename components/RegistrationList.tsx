@@ -374,10 +374,16 @@ export default function RegistrationList({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900 truncate">
                           {registration.regid}
                         </p>
+                        {registration.proof_uploaded_at && (
+                          <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Payment proof uploaded">
+                            <title>Payment proof uploaded</title>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                        )}
                         {hasNewProof(registration) && (
                           <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold bg-indigo-600 text-white animate-pulse whitespace-nowrap">
                             New Proof Uploaded
@@ -530,6 +536,12 @@ export default function RegistrationList({
                           <div className="text-sm font-medium text-gray-900 whitespace-nowrap">
                             {registration.regid}
                           </div>
+                          {registration.proof_uploaded_at && (
+                            <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Payment proof uploaded">
+                              <title>Payment proof uploaded</title>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                          )}
                           {hasNewProof(registration) && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-600 text-white animate-pulse whitespace-nowrap">
                               New Proof Uploaded

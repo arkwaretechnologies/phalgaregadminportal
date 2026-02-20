@@ -220,7 +220,7 @@ export default function DashboardLayout({
                           : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                       }`}
                     >
-                      <span className="text-sm">All Approved Participants</span>
+                      <span className="text-sm">All Approved Report</span>
                     </Link>
                     <Link
                       href="/dashboard/reports/pending"
@@ -464,9 +464,9 @@ export default function DashboardLayout({
                         ? 'bg-gray-800 text-white'
                         : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                     }`}
-                    title="All Approved Participants"
+                    title="All Approved Report"
                   >
-                    <span className="text-sm">All Approved Participants</span>
+                    <span className="text-sm">All Approved Report</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/pending"
