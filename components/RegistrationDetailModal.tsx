@@ -7,6 +7,8 @@ import CountdownTimer from './CountdownTimer';
 import PaymentProofViewer from './PaymentProofViewer';
 import LoadingSpinner from './LoadingSpinner';
 
+const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
+
 interface RegistrationDetailModalProps {
   registration: RegistrationDetail;
   isOpen: boolean;
@@ -25,6 +27,12 @@ export default function RegistrationDetailModal({
   const [participantToDelete, setParticipantToDelete] = useState<RegistrationDetailItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // T-shirt size edit state
+  const [participantToEditTshirt, setParticipantToEditTshirt] = useState<RegistrationDetailItem | null>(null);
+  const [tshirtEditValue, setTshirtEditValue] = useState('');
+  const [tshirtSaving, setTshirtSaving] = useState(false);
+  const [tshirtError, setTshirtError] = useState('');
 
   // Contact edit state
   const [showContactEditModal, setShowContactEditModal] = useState(false);
@@ -197,6 +205,55 @@ export default function RegistrationDetailModal({
     }
   };
 
+  const openTshirtEdit = (item: RegistrationDetailItem) => {
+    setParticipantToEditTshirt(item);
+    setTshirtEditValue(item.tshirtsize ?? '');
+    setTshirtError('');
+  };
+
+  const handleSaveTshirt = async () => {
+    if (!participantToEditTshirt) return;
+
+    setTshirtSaving(true);
+    setTshirtError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}/participants/${participantToEditTshirt.linenum}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tshirtsize: tshirtEditValue.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setTshirtError(data.error || 'Failed to update t-shirt size');
+        setTshirtSaving(false);
+        return;
+      }
+
+      setCurrentRegistration(prev => ({
+        ...prev,
+        regd: prev.regd?.map(p =>
+          p.linenum === participantToEditTshirt.linenum
+            ? { ...p, tshirtsize: tshirtEditValue.trim() || null }
+            : p
+        ),
+      }));
+
+      setParticipantToEditTshirt(null);
+      setTshirtSaving(false);
+      onUpdate();
+    } catch (err) {
+      setTshirtError('An error occurred. Please try again.');
+      setTshirtSaving(false);
+    }
+  };
 
   // Fixed registration fee per participant (to be made dynamic per conference later)
   const REGISTRATION_FEE = 7500;
@@ -383,7 +440,18 @@ export default function RegistrationDetailModal({
                             {item.brgy || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.tshirtsize || 'N/A'}
+                            <span className="inline-flex items-center gap-1.5">
+                              {item.tshirtsize || 'N/A'}
+                              <button
+                                onClick={() => openTshirtEdit(item)}
+                                className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                title="Edit T-shirt size"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </span>
                           </td>
                           {currentRegistration.status !== 'APPROVED' && (
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -485,6 +553,74 @@ export default function RegistrationDetailModal({
                   </>
                 ) : (
                   <span>Delete</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit T-shirt Size Modal */}
+      {participantToEditTshirt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Edit T-Shirt Size
+            </h2>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Participant</p>
+              <div className="bg-gray-50 p-3 rounded-md">
+                <p className="text-sm font-medium text-gray-900">
+                  {participantToEditTshirt.lastname}, {participantToEditTshirt.firstname} {participantToEditTshirt.middleinit || ''}
+                </p>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label htmlFor="tshirt-size-edit" className="block text-sm font-medium text-gray-700 mb-1">
+                T-Shirt Size
+              </label>
+              <select
+                id="tshirt-size-edit"
+                value={tshirtEditValue}
+                onChange={(e) => setTshirtEditValue(e.target.value)}
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+              >
+                <option value="">Not specified</option>
+                {TSHIRT_SIZES.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
+            {tshirtError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{tshirtError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setParticipantToEditTshirt(null);
+                  setTshirtError('');
+                }}
+                disabled={tshirtSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTshirt}
+                disabled={tshirtSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {tshirtSaving ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span>Save</span>
                 )}
               </button>
             </div>
