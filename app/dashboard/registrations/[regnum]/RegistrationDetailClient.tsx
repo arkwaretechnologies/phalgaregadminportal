@@ -6,7 +6,7 @@ import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '8XL'] as const;
+const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
 interface RegistrationDetailClientProps {
   registration: RegistrationDetail;

@@ -7,7 +7,7 @@ import CountdownTimer from './CountdownTimer';
 import PaymentProofViewer from './PaymentProofViewer';
 import LoadingSpinner from './LoadingSpinner';
 
-const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '8XL'] as const;
+const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
 interface RegistrationDetailModalProps {
   registration: RegistrationDetail;
