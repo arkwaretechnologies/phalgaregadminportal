@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
+    const view = searchParams.get('view') || 'registration'; // 'registration' or 'participant'
 
     // Build query for rejected registrations (no row limit)
     const { data: rejectedRegistrations, error: regError } = await fetchAllRecords(
@@ -90,6 +91,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Always compute both summary counts
+    const totalRegistrations = (rejectedRegistrations || []).length;
+    const totalParticipants = allParticipants.length;
+
     // Combine registration info with participant details
     const participantsWithRegInfo = allParticipants.map((participant: any) => {
       const registration = (rejectedRegistrations || []).find((r: any) => r.regid === participant.regid);
@@ -110,9 +115,45 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    if (view === 'participant') {
+      return NextResponse.json({
+        view: 'participant',
+        participants: participantsWithRegInfo,
+        total: participantsWithRegInfo.length,
+        totalRegistrations,
+        totalParticipants,
+      });
+    }
+
+    // Default: return all rejected registrations with participant counts
+    const participantCountMap: Record<string, number> = {};
+    allParticipants.forEach((p: any) => {
+      const regid = p.regid;
+      if (regid) {
+        participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
+      }
+    });
+
+    const registrationsWithCount = (rejectedRegistrations || []).map((reg: any) => ({
+      regid: reg.regid,
+      batchnum: reg.batchnum,
+      confcode: reg.confcode,
+      province: reg.province,
+      lgu: reg.lgu,
+      contactperson: reg.contactperson,
+      contactnum: reg.contactnum,
+      email: reg.email,
+      regdate: reg.regdate,
+      remarks: reg.remarks,
+      participantCount: participantCountMap[reg.regid] || 0,
+    }));
+
     return NextResponse.json({
-      participants: participantsWithRegInfo,
-      total: participantsWithRegInfo.length,
+      view: 'registration',
+      registrations: registrationsWithCount,
+      total: registrationsWithCount.length,
+      totalRegistrations,
+      totalParticipants,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
