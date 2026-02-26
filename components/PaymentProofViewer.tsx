@@ -19,6 +19,29 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
   const [error, setError] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
+  const handleDownloadZip = useCallback(async () => {
+    setDownloadLoading(true);
+    try {
+      const url = `/api/registrations/${encodeURIComponent(regid)}/payment-proofs-zip`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to download');
+      }
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `payment-proofs-${regid}.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('Download error:', err);
+    } finally {
+      setDownloadLoading(false);
+    }
+  }, [regid]);
 
   const fetchPaymentProofs = useCallback(async () => {
     setLoading(true);
@@ -109,10 +132,30 @@ export default function PaymentProofViewer({ batchnum, regid }: PaymentProofView
           </svg>
           Proof of Payment
         </p>
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <span className="text-sm text-green-700 font-medium">
             ✓ {paymentProofs.length} payment proof{paymentProofs.length !== 1 ? 's' : ''} uploaded
           </span>
+          <button
+            type="button"
+            onClick={handleDownloadZip}
+            disabled={downloadLoading}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {downloadLoading ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-2 border-green-600 border-t-transparent" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download all proofs (ZIP)
+              </>
+            )}
+          </button>
         </div>
 
         {/* Gallery Grid */}

@@ -52,8 +52,76 @@ export default function BatchesReportClient({
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [proofsZipLoading, setProofsZipLoading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null); // null = indeterminate, 0-100 = determinate
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
+
+  const handleDownloadProofsZip = async () => {
+    if (!selectedConfcode) return;
+    setProofsZipLoading(true);
+    setDownloadProgress(null);
+    setDownloadError(null);
+    setError('');
+
+    try {
+      const url = `/api/reports/payment-proofs-zip?confcode=${encodeURIComponent(selectedConfcode)}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        let msg = 'Download failed';
+        try {
+          const data = await response.json();
+          msg = data.error || msg;
+        } catch { /* ignore parse errors */ }
+        setDownloadError(msg);
+        setError(msg);
+        return;
+      }
+
+      const contentLength = response.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+      if (total > 0 && response.body) {
+        const reader = response.body.getReader();
+        const chunks: BlobPart[] = [];
+        let received = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          setDownloadProgress(Math.round((received / total) * 100));
+        }
+
+        const blob = new Blob(chunks, { type: 'application/zip' });
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `payment-proofs-${selectedConfcode}-${dateStr}.zip`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } else {
+        const blob = await response.blob();
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `payment-proofs-${selectedConfcode}-${dateStr}.zip`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+    } catch (err) {
+      console.error('Download proofs ZIP error:', err);
+      const msg = (err as Error).message || 'Failed to download payment proofs';
+      setDownloadError(msg);
+      setError(msg);
+    } finally {
+      setProofsZipLoading(false);
+      setDownloadProgress(null);
+    }
+  };
 
   // Filter batches based on search term (by batch number, regid, or contactperson)
   const filteredBatches = batches.filter((batch) => {
@@ -212,6 +280,53 @@ export default function BatchesReportClient({
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Download progress overlay */}
+      {(proofsZipLoading || downloadError) && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            {proofsZipLoading ? (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Downloading payment proofs</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  {downloadProgress != null
+                    ? 'Downloading...'
+                    : 'Preparing ZIP on server. For large conferences this can take 2–5 minutes.'}
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                    {downloadProgress != null ? (
+                      <div
+                        className="h-full bg-indigo-600 transition-all duration-150 ease-out rounded-full"
+                        style={{ width: `${downloadProgress}%` }}
+                      />
+                    ) : (
+                      <div className="h-full w-2/3 min-w-[120px] bg-indigo-500 animate-pulse rounded-full" />
+                    )}
+                  </div>
+                  {downloadProgress != null && (
+                    <span className="text-sm font-bold text-indigo-600 tabular-nums min-w-[3ch]">
+                      {downloadProgress}%
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-red-800 mb-2">Download failed</h3>
+                <p className="text-sm text-gray-600 mb-4">{downloadError}</p>
+                <button
+                  type="button"
+                  onClick={() => setDownloadError(null)}
+                  className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg"
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
           <div className="flex items-center gap-4">
@@ -228,28 +343,52 @@ export default function BatchesReportClient({
             </div>
           </div>
 
-          <button
-            onClick={handleExportExcel}
-            disabled={exporting || loading || batches.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors w-full sm:w-auto"
-          >
-            {exporting ? (
-              <>
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Exporting...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Export Excel</span>
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting || loading || batches.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors flex-1 sm:flex-none"
+            >
+              {exporting ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Exporting...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Export Excel</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleDownloadProofsZip}
+              disabled={proofsZipLoading || loading || !selectedConfcode}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors flex-1 sm:flex-none"
+            >
+              {proofsZipLoading ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Download all payment proofs (ZIP)</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
