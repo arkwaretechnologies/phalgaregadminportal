@@ -30,6 +30,13 @@ export default function RegistrationDetailClient({
   const [tshirtSaving, setTshirtSaving] = useState(false);
   const [tshirtError, setTshirtError] = useState('');
 
+  // Registration contact edit state (email, contact number)
+  const [showContactEdit, setShowContactEdit] = useState(false);
+  const [contactEditEmail, setContactEditEmail] = useState('');
+  const [contactEditNum, setContactEditNum] = useState('');
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState('');
+
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString();
@@ -135,6 +142,47 @@ export default function RegistrationDetailClient({
     }
   };
 
+  const openContactEdit = () => {
+    setContactEditEmail(registration.email ?? '');
+    setContactEditNum(registration.contactnum ?? '');
+    setContactError('');
+    setShowContactEdit(true);
+  };
+
+  const handleSaveContact = async () => {
+    setContactSaving(true);
+    setContactError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(registration.regid)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: contactEditEmail.trim() || null,
+            contactnum: contactEditNum.trim().replace(/\D/g, '') || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setContactError(data.error || 'Failed to update contact details');
+        setContactSaving(false);
+        return;
+      }
+
+      setShowContactEdit(false);
+      setContactSaving(false);
+      router.refresh();
+    } catch (err) {
+      setContactError('An error occurred. Please try again.');
+      setContactSaving(false);
+    }
+  };
+
   return (
     <>
       <div>
@@ -159,10 +207,20 @@ export default function RegistrationDetailClient({
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-start mb-6">
-            <div>
+            <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold text-gray-900">
                 Registration Information
               </h2>
+              <button
+                type="button"
+                onClick={openContactEdit}
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium inline-flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit contact
+              </button>
             </div>
             {getStatusBadge(registration.status)}
           </div>
@@ -425,6 +483,79 @@ export default function RegistrationDetailClient({
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
               >
                 {tshirtSaving ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span>Save</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit registration contact (email, contact number) modal */}
+      {showContactEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Edit contact details
+            </h2>
+            <div className="space-y-4 mb-4">
+              <div>
+                <label htmlFor="contact-edit-email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  id="contact-edit-email"
+                  type="email"
+                  value={contactEditEmail}
+                  onChange={(e) => setContactEditEmail(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <label htmlFor="contact-edit-num" className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact number (11 digits)
+                </label>
+                <input
+                  id="contact-edit-num"
+                  type="tel"
+                  value={contactEditNum}
+                  onChange={(e) => setContactEditNum(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="09XXXXXXXXX"
+                  maxLength={11}
+                />
+              </div>
+            </div>
+            {contactError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{contactError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowContactEdit(false);
+                  setContactError('');
+                }}
+                disabled={contactSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveContact}
+                disabled={contactSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {contactSaving ? (
                   <>
                     <LoadingSpinner />
                     <span>Saving…</span>

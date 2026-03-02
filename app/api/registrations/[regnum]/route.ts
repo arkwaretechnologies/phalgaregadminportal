@@ -137,8 +137,8 @@ export async function PATCH(
   { params }: { params: { regnum: string } }
 ) {
   try {
-    // Check authentication and role - only admin can update
-    await requireAuth(['admin']);
+    // Check authentication and role - admin and reviewer can update
+    await requireAuth(['admin', 'reviewer']);
 
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {
