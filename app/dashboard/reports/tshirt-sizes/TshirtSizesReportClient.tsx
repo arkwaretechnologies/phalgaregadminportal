@@ -25,6 +25,9 @@ export default function TshirtSizesReportClient({
   const searchParams = useSearchParams();
   const [conferences] = useState<Conference[]>(initialConferences);
   const [selectedConfcode, setSelectedConfcode] = useState<string | null>(initialConfcode);
+  const [statusFilter, setStatusFilter] = useState<string>(
+    () => searchParams.get('status') || 'APPROVED'
+  );
   const [summary, setSummary] = useState<ConferenceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,10 +37,18 @@ export default function TshirtSizesReportClient({
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
 
-  // Reset pagination when conference changes
+  // Sync status filter from URL (e.g. back/forward navigation)
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    if (urlStatus && ['APPROVED', 'PENDING', 'ALL'].includes(urlStatus)) {
+      setStatusFilter(urlStatus);
+    }
+  }, [searchParams]);
+
+  // Reset pagination when conference or status changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedConfcode]);
+  }, [selectedConfcode, statusFilter]);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -53,6 +64,7 @@ export default function TshirtSizesReportClient({
       try {
         const url = new URL('/api/reports/tshirt-sizes', window.location.origin);
         url.searchParams.set('confcode', selectedConfcode);
+        url.searchParams.set('status', statusFilter);
 
         const response = await fetch(url.toString());
         const data = await response.json();
@@ -75,12 +87,19 @@ export default function TshirtSizesReportClient({
     };
 
     fetchSummary();
-  }, [selectedConfcode]);
+  }, [selectedConfcode, statusFilter]);
 
   const handleConferenceChange = (confcode: string) => {
     setSelectedConfcode(confcode);
     const params = new URLSearchParams(searchParams.toString());
     params.set('confcode', confcode);
+    router.push(`/dashboard/reports/tshirt-sizes?${params.toString()}`);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('status', status);
     router.push(`/dashboard/reports/tshirt-sizes?${params.toString()}`);
   };
 
@@ -119,8 +138,10 @@ export default function TshirtSizesReportClient({
       // Row 2: blank
       // Row 3: headers (Size, Count)
       // Rows 4..: data + total
+      const statusLabel = statusFilter === 'APPROVED' ? 'Approved' : statusFilter === 'PENDING' ? 'Pending' : 'All (Approved + Pending)';
       const aoa: (string | number)[][] = [
         [`Conference: ${confName}`],
+        [`Status: ${statusLabel}`],
         [''],
         ['T-Shirt Size', 'Count'],
         ...sizeRows.map((row) => [row.size, row.count]),
@@ -129,14 +150,18 @@ export default function TshirtSizesReportClient({
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-      // Merge A1:B1 for the title
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+      // Merge title rows
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+      ];
 
       // Column widths
       ws['!cols'] = [{ wch: 18 }, { wch: 10 }];
 
-      // Add autofilter on the header row (row index 2 -> Excel row 3)
-      ws['!autofilter'] = { ref: 'A3:B3' };
+      // Add autofilter on header + data rows
+      const lastRow = 4 + sizeRows.length;
+      ws['!autofilter'] = { ref: `A4:B${lastRow}` };
 
       XLSX.utils.book_append_sheet(wb, ws, 'T-Shirt Sizes');
 
@@ -165,7 +190,9 @@ export default function TshirtSizesReportClient({
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
                 T-Shirt Size Summary
               </h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">Counts of t-shirt sizes for approved participants (per conference)</p>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
+                Counts of t-shirt sizes by participant status (per conference)
+              </p>
             </div>
           </div>
 
@@ -194,22 +221,40 @@ export default function TshirtSizesReportClient({
         </div>
       </div>
 
-      {/* Conference Filter */}
+      {/* Filters */}
       <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Conference
-        </label>
-        <select
-          value={selectedConfcode || ''}
-          onChange={(e) => handleConferenceChange(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 text-sm sm:text-base"
-        >
-          {conferences.map((conference) => (
-            <option key={conference.confcode} value={conference.confcode}>
-              {conference.confcode} - {conference.name || 'Unnamed Conference'}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Conference
+            </label>
+            <select
+              value={selectedConfcode || ''}
+              onChange={(e) => handleConferenceChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 text-sm sm:text-base"
+            >
+              {conferences.map((conference) => (
+                <option key={conference.confcode} value={conference.confcode}>
+                  {conference.confcode} - {conference.name || 'Unnamed Conference'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Participant Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 text-sm sm:text-base"
+            >
+              <option value="APPROVED">Approved</option>
+              <option value="PENDING">Pending</option>
+              <option value="ALL">All (Approved + Pending)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Conference Title */}
@@ -236,7 +281,11 @@ export default function TshirtSizesReportClient({
         </div>
       ) : !summary || sizeRows.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 text-center">
-          <p className="text-sm sm:text-base text-gray-500">No approved participants (or no t-shirt sizes recorded) for this conference.</p>
+          <p className="text-sm sm:text-base text-gray-500">
+            {statusFilter === 'APPROVED' && 'No approved participants (or no t-shirt sizes recorded) for this conference.'}
+            {statusFilter === 'PENDING' && 'No pending participants (or no t-shirt sizes recorded) for this conference.'}
+            {statusFilter === 'ALL' && 'No participants (or no t-shirt sizes recorded) for this conference.'}
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">

@@ -41,6 +41,7 @@ async function fetchAllRecords(
 
 type TshirtSizeRow = {
   confcode: string | null;
+  status: string | null;
   tshirtsize: string | null;
   participant_count: number | string; // supabase may return bigint as string depending on config
 };
@@ -50,17 +51,21 @@ export async function GET(request: NextRequest) {
     await requireAuth(['admin', 'reviewer']);
 
     const confcode = request.nextUrl.searchParams.get('confcode');
+    const statusFilter = request.nextUrl.searchParams.get('status') || 'APPROVED'; // APPROVED | PENDING | ALL
 
     // Fetch all t-shirt size counts (no row limit)
     const { data, error } = await fetchAllRecords(
       'report_tshirt_size_counts',
-      'confcode,tshirtsize,participant_count',
+      'confcode,status,tshirtsize,participant_count',
       (query) => {
         query = query
           .order('confcode', { ascending: true })
           .order('tshirtsize', { ascending: true, nullsFirst: false });
         if (confcode) {
           query = query.eq('confcode', confcode);
+        }
+        if (statusFilter !== 'ALL') {
+          query = query.eq('status', statusFilter);
         }
         return query;
       }
