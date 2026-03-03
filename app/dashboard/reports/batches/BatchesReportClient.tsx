@@ -233,8 +233,8 @@ export default function BatchesReportClient({
           'Batch #': batch.batchnum,
           'Registration ID': reg.regid || 'N/A',
           'Contact Person': reg.contactperson || 'N/A',
-          'Province': reg.province || 'N/A',
           'LGU': reg.lgu || 'N/A',
+          'Province': reg.province || 'N/A',
           'Email': reg.email || 'N/A',
           'Contact Number': reg.contactnum || 'N/A',
           'Registration Date': formatDate(reg.regdate),
@@ -252,8 +252,8 @@ export default function BatchesReportClient({
           'Batch #': batch.batchnum,
           'Participant Name': [p.lastname, p.firstname, p.middleinit].filter(Boolean).join(', ') || 'N/A',
           'Designation': p.designation || 'N/A',
-          'Province': p.province || 'N/A',
           'LGU': p.lgu || 'N/A',
+          'Province': p.province || 'N/A',
         }))
       );
       const partWs = XLSX.utils.json_to_sheet(partData);
