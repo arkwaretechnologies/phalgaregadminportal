@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Conference } from '@/types';
 import Pagination from '@/components/Pagination';
+import PaymentProofImageViewer from '@/components/PaymentProofImageViewer';
+
+interface PaymentProofItem {
+  url: string;
+  uploaded_at?: string;
+}
 
 interface Participant {
   [key: string]: any;
@@ -55,8 +61,51 @@ export default function BatchesReportClient({
   const [proofsZipLoading, setProofsZipLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null); // null = indeterminate, 0-100 = determinate
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [batchPaymentProofs, setBatchPaymentProofs] = useState<
+    Record<number, { regid: string; proofs: PaymentProofItem[] }[]>
+  >({});
+  const [proofsLoadingBatch, setProofsLoadingBatch] = useState<number | null>(null);
+  const [proofViewer, setProofViewer] = useState<{
+    proofs: PaymentProofItem[];
+    initialIndex: number;
+    regid: string;
+  } | null>(null);
+  const [thumbImageErrors, setThumbImageErrors] = useState<Set<string>>(new Set());
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
+
+  const isImageFile = useCallback((url: string) => url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/), []);
+  const isPdfFile = useCallback((url: string) => url.toLowerCase().match(/\.pdf$/), []);
+
+  // Load payment proofs for a batch when it is expanded
+  useEffect(() => {
+    if (expandedBatch == null || !batches.length) return;
+    const batch = batches.find((b) => b.batchnum === expandedBatch);
+    if (!batch?.registrations?.length) return;
+    if (batchPaymentProofs[expandedBatch]) return; // already loaded
+
+    setProofsLoadingBatch(expandedBatch);
+    const regids = batch.registrations.map((r) => r.regid).filter(Boolean) as string[];
+
+    Promise.all(
+      regids.map((regid) =>
+        fetch(`/api/registrations/${encodeURIComponent(regid)}/payment-proofs`)
+          .then((res) => res.json())
+          .then((data) => ({
+            regid,
+            proofs: Array.isArray(data?.paymentProofs) ? data.paymentProofs : [],
+          }))
+      )
+    )
+      .then((results) => {
+        setBatchPaymentProofs((prev) => ({
+          ...prev,
+          [expandedBatch]: results.filter((r) => r.proofs.length > 0),
+        }));
+      })
+      .catch((err) => console.error('Error loading batch payment proofs:', err))
+      .finally(() => setProofsLoadingBatch(null));
+  }, [expandedBatch, batches, batchPaymentProofs]);
 
   const handleDownloadProofsZip = async () => {
     if (!selectedConfcode) return;
@@ -560,8 +609,63 @@ export default function BatchesReportClient({
                     </p>
                   </div>
                 </div>
+                <div
+                  className="flex items-center gap-1.5 flex-1 justify-end min-w-0 mx-2"
+                  onClick={(e) => e.stopPropagation()}
+                  role="presentation"
+                >
+                  {proofsLoadingBatch === batch.batchnum ? (
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent" />
+                      Proofs…
+                    </span>
+                  ) : (
+                    (batchPaymentProofs[batch.batchnum] || []).flatMap(({ regid, proofs }) =>
+                      proofs.map((proof, idx) => {
+                        const isImage = isImageFile(proof.url);
+                        const isPdf = isPdfFile(proof.url);
+                        const imageFailed = thumbImageErrors.has(proof.url);
+                        const showThumb = isImage && !imageFailed;
+                        return (
+                          <button
+                            key={`${regid}-${idx}-${proof.url}`}
+                            type="button"
+                            className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 hover:border-indigo-400 hover:ring-2 hover:ring-indigo-200 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            onClick={() =>
+                              setProofViewer({ proofs, initialIndex: idx, regid })
+                            }
+                            title={`Payment proof ${idx + 1} (${regid})`}
+                          >
+                            {showThumb ? (
+                              <img
+                                src={proof.url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={() =>
+                                  setThumbImageErrors((prev) => new Set(prev).add(proof.url))
+                                }
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                {isPdf ? (
+                                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })
+                    )
+                  )}
+                </div>
                 <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-300 ease-in-out ${
+                  className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-300 ease-in-out ${
                     expandedBatch === batch.batchnum ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -682,6 +786,15 @@ export default function BatchesReportClient({
             </div>
           ))}
         </div>
+      )}
+
+      {proofViewer && (
+        <PaymentProofImageViewer
+          proofs={proofViewer.proofs}
+          initialIndex={proofViewer.initialIndex}
+          onClose={() => setProofViewer(null)}
+          regid={proofViewer.regid}
+        />
       )}
     </div>
   );
