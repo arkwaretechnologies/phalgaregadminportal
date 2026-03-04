@@ -282,6 +282,16 @@ export default function DashboardLayout({
                     >
                       <span className="text-sm">Pending by Location</span>
                     </Link>
+                    <Link
+                      href="/dashboard/reports/duplicates"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/duplicates'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Possible Duplicate Entry</span>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -533,6 +543,17 @@ export default function DashboardLayout({
                     title="Pending by Location"
                   >
                     <span className="text-sm">Pending by Location</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/duplicates"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/duplicates'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Possible Duplicate Entry"
+                  >
+                    <span className="text-sm">Possible Duplicate Entry</span>
                   </Link>
                 </div>
               )}
