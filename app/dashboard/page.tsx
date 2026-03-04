@@ -177,6 +177,10 @@ export default async function DashboardPage({
   const registrations = await getRegistrations(status, search, confcode);
 
   return (
-    <RegistrationsPageClient initialRegistrations={registrations} initialConfcode={confcode} />
+    <RegistrationsPageClient
+      initialRegistrations={registrations}
+      initialConfcode={confcode}
+      initialSearch={search}
+    />
   );
 }

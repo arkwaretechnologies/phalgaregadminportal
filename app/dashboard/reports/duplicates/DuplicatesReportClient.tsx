@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
 
@@ -10,6 +9,8 @@ interface DuplicateGroup {
   confcode: string | null;
   lastname: string | null;
   firstname: string | null;
+  province: string | null;
+  lgu: string | null;
   count: number;
   participants: Array<{
     regid: string;
@@ -128,7 +129,7 @@ export default function DuplicatesReportClient({
   };
 
   const groupKey = (g: DuplicateGroup) =>
-    `${g.confcode ?? ''}\t${g.lastname ?? ''}\t${g.firstname ?? ''}`;
+    `${g.confcode ?? ''}\t${g.lastname ?? ''}\t${g.firstname ?? ''}\t${g.province ?? ''}\t${g.lgu ?? ''}`;
 
   const toggleExpanded = (key: string) => {
     setExpandedKeys((prev) => {
@@ -161,6 +162,8 @@ export default function DuplicatesReportClient({
           rows.push([
             g.confcode ?? '',
             nameDisplay,
+            g.province ?? '',
+            g.lgu ?? '',
             g.count,
             p.regid ?? '',
             formatDate(reg?.regdate ?? null),
@@ -171,12 +174,14 @@ export default function DuplicatesReportClient({
       }
 
       const ws = XLSX.utils.aoa_to_sheet([
-        ['Conference', 'Name (Last, First)', 'Duplicate Count', 'Registration ID', 'Reg Date', 'Status', 'Batch #'],
+        ['Conference', 'Name (Last, First)', 'Province', 'LGU', 'Duplicate Count', 'Registration ID', 'Reg Date', 'Status', 'Batch #'],
         ...rows,
       ]);
       ws['!cols'] = [
         { wch: 14 },
         { wch: 28 },
+        { wch: 18 },
+        { wch: 22 },
         { wch: 10 },
         { wch: 18 },
         { wch: 22 },
@@ -359,7 +364,7 @@ export default function DuplicatesReportClient({
                 <p className="text-sm font-medium text-gray-500">Duplicate name groups</p>
                 <p className="text-3xl font-bold text-gray-900">{groups.length}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Same last name + first name in this conference
+                  Same last name + first name + province + LGU in this conference
                   {statusFilter !== 'ALL' && ` (${statusFilter} only)`}
                 </p>
               </div>
@@ -368,7 +373,7 @@ export default function DuplicatesReportClient({
 
           {groups.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center text-gray-500">
-              No duplicate name groups found for the selected conference and status.
+              No duplicate groups (same name + province + LGU) found for the selected conference and status.
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -382,6 +387,12 @@ export default function DuplicatesReportClient({
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         First name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Province
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        LGU
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Count
@@ -415,11 +426,13 @@ export default function DuplicatesReportClient({
                             </td>
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{nameLast}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{nameFirst}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{g.province ?? '—'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{g.lgu ?? '—'}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{g.count}</td>
                           </tr>
                           {isExpanded && (
                             <tr>
-                              <td colSpan={4} className="px-4 py-0 bg-gray-50">
+                              <td colSpan={6} className="px-4 py-0 bg-gray-50">
                                 <div className="py-3 pl-6 space-y-2">
                                   {g.participants.map((p, idx) => {
                                     const reg = p.registration;
@@ -436,13 +449,19 @@ export default function DuplicatesReportClient({
                                           {formatDate(reg?.regdate ?? null)} · {reg?.status ?? '—'}
                                           {reg?.batchnum != null ? ` · Batch ${reg.batchnum}` : ''}
                                         </span>
-                                        <Link
-                                          href={`/dashboard/registrations/${encodeURIComponent(regid)}`}
+                                        <a
+                                          href={
+                                            selectedConfcode
+                                              ? `/dashboard?search=${encodeURIComponent(regid)}&confcode=${encodeURIComponent(selectedConfcode)}`
+                                              : `/dashboard?search=${encodeURIComponent(regid)}`
+                                          }
+                                          target="_blank"
+                                          rel="noopener noreferrer"
                                           className="text-amber-600 hover:text-amber-700 font-medium"
                                           onClick={(e) => e.stopPropagation()}
                                         >
                                           View registration →
-                                        </Link>
+                                        </a>
                                       </div>
                                     );
                                   })}

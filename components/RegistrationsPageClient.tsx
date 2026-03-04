@@ -73,9 +73,11 @@ function RemainingSlotsCard({ refreshNonce, confcode }: { refreshNonce: number; 
 export default function RegistrationsPageClient({
   initialRegistrations,
   initialConfcode,
+  initialSearch = '',
 }: {
   initialRegistrations: Registration[];
   initialConfcode?: string | null;
+  initialSearch?: string;
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -197,6 +199,7 @@ export default function RegistrationsPageClient({
         initialRegistrations={initialRegistrations}
         onRegistrationsChanged={handleRegistrationsChanged}
         confcode={selectedConfcode}
+        initialSearch={initialSearch}
       />
     </div>
   );

@@ -11,17 +11,19 @@ interface RegistrationListProps {
   initialRegistrations: Registration[];
   onRegistrationsChanged?: () => void;
   confcode?: string | null;
+  initialSearch?: string;
 }
 
 export default function RegistrationList({
   initialRegistrations,
   onRegistrationsChanged,
   confcode,
+  initialSearch = '',
 }: RegistrationListProps) {
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);

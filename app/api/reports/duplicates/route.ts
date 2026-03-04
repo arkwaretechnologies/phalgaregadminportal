@@ -123,22 +123,26 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Group by (confcode, lastname, firstname) with normalized key (trim, null as '')
+    // Group by (confcode, lastname, firstname, province, lgu) so we only show duplicates with same LGU and Province
     const keyToParticipants: Record<string, typeof participantsWithReg> = {};
     for (const p of participantsWithReg) {
       const c = normalize(p.confcode);
       const last = normalize(p.lastname);
       const first = normalize(p.firstname);
-      const key = `${c}\t${last}\t${first}`;
+      const prov = normalize(p.province);
+      const lgu = normalize(p.lgu);
+      const key = `${c}\t${last}\t${first}\t${prov}\t${lgu}`;
       if (!keyToParticipants[key]) keyToParticipants[key] = [];
       keyToParticipants[key].push(p);
     }
 
-    // Keep only groups with count > 1 and build response with original lastname/firstname
+    // Keep only groups with count > 1 and build response with original fields
     const groups: Array<{
       confcode: string | null;
       lastname: string | null;
       firstname: string | null;
+      province: string | null;
+      lgu: string | null;
       count: number;
       participants: any[];
     }> = [];
@@ -151,17 +155,25 @@ export async function GET(request: NextRequest) {
         confcode: first.confcode ?? null,
         lastname: first.lastname ?? null,
         firstname: first.firstname ?? null,
+        province: first.province ?? null,
+        lgu: first.lgu ?? null,
         count: list.length,
         participants: list,
       });
     }
 
-    // Sort by lastname then firstname
+    // Sort by lastname, firstname, then province, lgu
     groups.sort((a, b) => {
       const aLast = (a.lastname ?? '').toLowerCase();
       const bLast = (b.lastname ?? '').toLowerCase();
       if (aLast !== bLast) return aLast.localeCompare(bLast);
-      return (a.firstname ?? '').toLowerCase().localeCompare((b.firstname ?? '').toLowerCase());
+      const aFirst = (a.firstname ?? '').toLowerCase();
+      const bFirst = (b.firstname ?? '').toLowerCase();
+      if (aFirst !== bFirst) return aFirst.localeCompare(bFirst);
+      const aProv = (a.province ?? '').toLowerCase();
+      const bProv = (b.province ?? '').toLowerCase();
+      if (aProv !== bProv) return aProv.localeCompare(bProv);
+      return (a.lgu ?? '').toLowerCase().localeCompare((b.lgu ?? '').toLowerCase());
     });
 
     return NextResponse.json({ groups });
