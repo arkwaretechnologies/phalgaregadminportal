@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       'regh',
       (query) => {
-        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false });
+        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false }).order('regid', { ascending: true });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       const { data, error } = await fetchAllRecords(
         'regdep',
         (query) => {
-          query = query.in('regid', regids);
+          query = query.in('regid', regids).order('regid', { ascending: true });
           // Also filter by confcode if provided
           if (confcode) {
             query = query.eq('confcode', confcode);
