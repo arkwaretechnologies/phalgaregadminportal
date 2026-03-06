@@ -141,6 +141,7 @@ export async function GET(request: NextRequest) {
       confcode: string | null;
       lastname: string | null;
       firstname: string | null;
+      suffix: string | null;
       province: string | null;
       lgu: string | null;
       count: number;
@@ -155,6 +156,7 @@ export async function GET(request: NextRequest) {
         confcode: first.confcode ?? null,
         lastname: first.lastname ?? null,
         firstname: first.firstname ?? null,
+        suffix: first.suffix ?? null,
         province: first.province ?? null,
         lgu: first.lgu ?? null,
         count: list.length,

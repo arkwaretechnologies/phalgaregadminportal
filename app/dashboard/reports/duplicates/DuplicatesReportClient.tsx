@@ -9,6 +9,7 @@ interface DuplicateGroup {
   confcode: string | null;
   lastname: string | null;
   firstname: string | null;
+  suffix: string | null;
   province: string | null;
   lgu: string | null;
   count: number;
@@ -156,7 +157,7 @@ export default function DuplicatesReportClient({
 
       const rows: (string | number)[][] = [];
       for (const g of groups) {
-        const nameDisplay = [g.lastname, g.firstname].filter(Boolean).join(', ') || 'N/A';
+        const nameDisplay = [g.lastname, g.firstname, g.suffix].filter((v) => v && v !== 'N/A').join(', ') || 'N/A';
         for (const p of g.participants) {
           const reg = p.registration;
           rows.push([
@@ -174,7 +175,7 @@ export default function DuplicatesReportClient({
       }
 
       const ws = XLSX.utils.aoa_to_sheet([
-        ['Conference', 'Name (Last, First)', 'Province', 'LGU', 'Duplicate Count', 'Registration ID', 'Reg Date', 'Status', 'Batch #'],
+        ['Conference', 'Name (Last, First, Suffix)', 'Province', 'LGU', 'Duplicate Count', 'Registration ID', 'Reg Date', 'Status', 'Batch #'],
         ...rows,
       ]);
       ws['!cols'] = [

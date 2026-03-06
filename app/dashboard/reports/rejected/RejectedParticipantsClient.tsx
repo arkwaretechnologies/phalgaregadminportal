@@ -117,8 +117,8 @@ export default function RejectedParticipantsClient({
     }
     
     // General search across all fields
-    const name = [participant.lastname, participant.firstname, participant.middleinit]
-      .filter(Boolean)
+    const name = [participant.lastname, participant.firstname, participant.middleinit, participant.suffix]
+      .filter((v: any) => v && v !== 'N/A')
       .join(' ')
       .toLowerCase();
     const designation = (participant.designation || '').toLowerCase();
@@ -244,8 +244,8 @@ export default function RejectedParticipantsClient({
       } else {
         if (participants.length === 0) return;
         const data = participants.map((participant) => ({
-          'Participant Name': [participant.lastname, participant.firstname, participant.middleinit]
-            .filter(Boolean)
+          'Participant Name': [participant.lastname, participant.firstname, participant.middleinit, participant.suffix]
+            .filter((v: any) => v && v !== 'N/A')
             .join(', ') || 'N/A',
           'Designation': participant.designation || 'N/A',
           'Registration ID': participant.registration?.regid || 'N/A',
@@ -556,8 +556,8 @@ export default function RejectedParticipantsClient({
                 {(paginatedData as Participant[]).map((participant, index) => (
                   <tr key={`${participant.regid}-${participant.linenum}-${index}`} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {[participant.lastname, participant.firstname, participant.middleinit]
-                        .filter(Boolean)
+                      {[participant.lastname, participant.firstname, participant.middleinit, participant.suffix]
+                        .filter((v: any) => v && v !== 'N/A')
                         .join(', ') || 'N/A'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">

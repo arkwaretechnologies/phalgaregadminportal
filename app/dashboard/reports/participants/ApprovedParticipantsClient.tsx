@@ -104,7 +104,7 @@ export default function ApprovedParticipantsClient({
       return batchnum === batchQuery || batchnum.includes(batchQuery);
     }
 
-    const name = [p.lastname, p.firstname, p.middleinit].filter(Boolean).join(' ').toLowerCase();
+    const name = [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(' ').toLowerCase();
     return (
       name.includes(q) ||
       (p.designation || '').toLowerCase().includes(q) ||
@@ -243,7 +243,7 @@ export default function ApprovedParticipantsClient({
       } else {
         if (participants.length === 0) return;
         const data = participants.map((p) => ({
-          'Participant Name': [p.lastname, p.firstname, p.middleinit].filter(Boolean).join(', ') || 'N/A',
+          'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
           'Designation': p.designation || 'N/A',
           'Batch #': p.registration?.batchnum || 'N/A',
           'Registration ID': p.registration?.regid || 'N/A',
@@ -509,7 +509,7 @@ export default function ApprovedParticipantsClient({
                 {(paginatedData as Participant[]).map((p, index) => (
                   <tr key={`${p.regid}-${p.linenum}-${index}`} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {[p.lastname, p.firstname, p.middleinit].filter(Boolean).join(', ') || 'N/A'}
+                      {[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{p.designation || 'N/A'}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{p.registration?.batchnum || 'N/A'}</td>

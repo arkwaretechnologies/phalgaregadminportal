@@ -299,7 +299,7 @@ export default function BatchesReportClient({
       const partData = batches.flatMap((batch) =>
         batch.participants.map((p) => ({
           'Batch #': batch.batchnum,
-          'Participant Name': [p.lastname, p.firstname, p.middleinit].filter(Boolean).join(', ') || 'N/A',
+          'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
           'Designation': p.designation || 'N/A',
           'LGU': p.lgu || 'N/A',
           'Province': p.province || 'N/A',
@@ -763,8 +763,8 @@ export default function BatchesReportClient({
                               {batch.participants.map((participant, index) => (
                                 <tr key={`${participant.regid}-${participant.linenum}-${index}`} className="hover:bg-gray-50">
                                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                    {[participant.lastname, participant.firstname, participant.middleinit]
-                                      .filter(Boolean)
+                                    {[participant.lastname, participant.firstname, participant.middleinit, participant.suffix]
+                                      .filter((v: any) => v && v !== 'N/A')
                                       .join(', ') || 'N/A'}
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">

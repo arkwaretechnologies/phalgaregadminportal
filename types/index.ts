@@ -38,6 +38,7 @@ export interface RegistrationDetailItem {
   lastname: string | null;
   firstname: string | null;
   middleinit: string | null;
+  suffix: string | null;
   designation: string | null;
   brgy: string | null;
   lgu: string | null;
