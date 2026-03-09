@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Conference } from '@/types';
 import Pagination from '@/components/Pagination';
 import PaymentProofImageViewer from '@/components/PaymentProofImageViewer';
@@ -58,6 +60,7 @@ export default function BatchesReportClient({
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [proofsZipLoading, setProofsZipLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null); // null = indeterminate, 0-100 = determinate
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -320,6 +323,205 @@ export default function BatchesReportClient({
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!selectedConfcode || batches.length === 0) return;
+    setPdfExporting(true);
+    await new Promise((r) => setTimeout(r, 0));
+
+    try {
+      const confName = selectedConference?.name || selectedConfcode;
+      const doc = new jsPDF('portrait', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+
+      for (let bi = 0; bi < batches.length; bi++) {
+        const batch = batches[bi];
+        if (bi > 0) doc.addPage();
+
+        const reg = batch.registrations[0];
+        const lguName = reg?.lgu || '';
+        const provinceName = reg?.province || '';
+        const contactPerson = reg?.contactperson || '';
+        const contactNum = reg?.contactnum || '';
+        const participants = batch.participants || [];
+
+        let y = 20;
+
+        // --- HEADER ---
+        // "BATCH NO." label + large batch number (top-right)
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BATCH NO.', pageWidth - margin, y, { align: 'right' });
+        doc.setFontSize(28);
+        doc.text(String(batch.batchnum), pageWidth - margin, y + 10, { align: 'right' });
+
+        // Org name (centered)
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(
+          'Philippine Association of Local Government Accounts',
+          pageWidth / 2,
+          y,
+          { align: 'center' }
+        );
+
+        y += 7;
+        // Conference name + batch (centered, bold)
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${confName} - BATCH ${batch.batchnum}`, pageWidth / 2, y, {
+          align: 'center',
+        });
+
+        y += 10;
+
+        // --- SUB-HEADER ---
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const lguLabel = 'LGU :   ';
+        doc.text(lguLabel, margin, y);
+        doc.setFont('helvetica', 'bold');
+        const lguValue = [lguName, provinceName].filter(Boolean).join(', ');
+        doc.text(lguValue, margin + doc.getTextWidth(lguLabel), y);
+
+        doc.setFont('helvetica', 'normal');
+        doc.text('Date :', pageWidth / 2 + 30, y);
+
+        y += 3;
+
+        // --- TABLE ---
+        const tableBody = participants.map((p: any, i: number) => {
+          const nameParts = [p.firstname, p.middleinit].filter(
+            (v: string) => v && v.trim()
+          );
+          const fullName = p.lastname
+            ? `${p.lastname}, ${nameParts.join(' ')}`
+            : nameParts.join(' ');
+          const suffix =
+            p.suffix && p.suffix !== 'N/A' ? ` ${p.suffix}` : '';
+          const brgy = p.brgy && p.brgy.trim() ? p.brgy.trim() : '';
+          const bgyLgu = `${brgy}, ${p.lgu || lguName}`;
+
+          return [
+            `${i + 1}.`,
+            (fullName + suffix).toUpperCase(),
+            bgyLgu.toUpperCase(),
+            '',
+            p.tshirtsize || '',
+          ];
+        });
+
+        autoTable(doc, {
+          startY: y,
+          head: [['', 'Name', 'Barangay/LGU', 'OR No.', 'T-Shirt Size']],
+          body: tableBody,
+          theme: 'plain',
+          styles: {
+            fontSize: 9,
+            cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
+            textColor: [0, 0, 0],
+          },
+          headStyles: { fontStyle: 'bold', fontSize: 9 },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'right' },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 55 },
+            3: { cellWidth: 25, halign: 'center' },
+            4: { cellWidth: 25, halign: 'center' },
+          },
+          margin: { left: margin, right: margin },
+          didDrawCell: (data: any) => {
+            if (data.section === 'head') {
+              doc.setDrawColor(0);
+              doc.setLineWidth(0.3);
+              doc.line(
+                data.cell.x,
+                data.cell.y + data.cell.height,
+                data.cell.x + data.cell.width,
+                data.cell.y + data.cell.height
+              );
+            }
+            if (data.section === 'body') {
+              doc.setDrawColor(180);
+              doc.setLineWidth(0.1);
+              doc.line(
+                data.cell.x,
+                data.cell.y + data.cell.height,
+                data.cell.x + data.cell.width,
+                data.cell.y + data.cell.height
+              );
+            }
+          },
+        });
+
+        // --- FOOTER ---
+        const finalY = (doc as any).lastAutoTable.finalY + 8;
+
+        // T-shirt size counts (bottom-left)
+        const sizeCounts: Record<string, number> = {};
+        participants.forEach((p: any) => {
+          if (p.tshirtsize) {
+            sizeCounts[p.tshirtsize] = (sizeCounts[p.tshirtsize] || 0) + 1;
+          }
+        });
+
+        let sizeY = finalY;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        Object.entries(sizeCounts)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([size, count]) => {
+            doc.text(size, margin + 5, sizeY);
+            doc.text(String(count), margin + 18, sizeY);
+            sizeY += 4;
+          });
+
+        // Total (center-bottom)
+        const totalY = Math.max(sizeY + 4, finalY + 18);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Total : ${participants.length}`, pageWidth / 2 - 10, totalY);
+
+        // Received By (right side)
+        const rcvLabelX = pageWidth / 2 + 10;
+        const nameStartX = rcvLabelX + 28;
+        const lineEndX = pageWidth - margin;
+        const sigMidX = (nameStartX - 5 + lineEndX) / 2;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Received By:', rcvLabelX, finalY);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text(contactPerson.toUpperCase(), nameStartX, finalY);
+
+        // Signature line
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.line(nameStartX - 5, finalY + 3, lineEndX, finalY + 3);
+
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.text('Signature over printed name', sigMidX, finalY + 7, {
+          align: 'center',
+        });
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Contact No. ${contactNum}`, sigMidX, finalY + 11, {
+          align: 'center',
+        });
+      }
+
+      const safeConfName = (confName || '').replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`${safeConfName}_batch_report.pdf`);
+    } catch (err: any) {
+      console.error('PDF export error:', err);
+      setError(err.message || 'Failed to export PDF');
+    } finally {
+      setPdfExporting(false);
+    }
+  };
+
   // Calculate total accepted participants across all batches
   const totalAcceptedParticipants = batches.reduce((sum, batch) => sum + batch.participant_count, 0);
   
@@ -412,6 +614,28 @@ export default function BatchesReportClient({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <span>Export Excel</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={pdfExporting || loading || batches.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors flex-1 sm:flex-none"
+            >
+              {pdfExporting ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Generating PDF...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <span>Batch Report (PDF)</span>
                 </>
               )}
             </button>
