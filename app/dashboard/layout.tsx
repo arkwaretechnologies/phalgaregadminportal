@@ -253,6 +253,16 @@ export default function DashboardLayout({
                       <span className="text-sm">Per Batch Number</span>
                     </Link>
                     <Link
+                      href="/dashboard/reports/batch-summary"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/batch-summary'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Batch Summary Report</span>
+                    </Link>
+                    <Link
                       href="/dashboard/reports/tshirt-sizes"
                       className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
                         pathname === '/dashboard/reports/tshirt-sizes'
@@ -510,6 +520,17 @@ export default function DashboardLayout({
                     title="Per Batch Number"
                   >
                     <span className="text-sm">Per Batch Number</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/batch-summary"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/batch-summary'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Batch Summary Report"
+                  >
+                    <span className="text-sm">Batch Summary Report</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/tshirt-sizes"
