@@ -23,6 +23,7 @@ export default function RegistrationList({
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [attachmentFilter, setAttachmentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -48,6 +49,9 @@ export default function RegistrationList({
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
+      if (attachmentFilter === 'withFile') {
+        params.append('withAttachment', 'true');
+      }
       if (searchQuery) {
         params.append('search', searchQuery);
       }
@@ -67,7 +71,7 @@ export default function RegistrationList({
     } finally {
       setLoading(false);
     }
-  }, [confcode, statusFilter, searchQuery, onRegistrationsChanged]);
+  }, [confcode, statusFilter, attachmentFilter, searchQuery, onRegistrationsChanged]);
 
   // Track the last confcode that was used to fetch data
   const lastConfcodeRef = useRef<string | null | undefined>(confcode);
@@ -75,6 +79,7 @@ export default function RegistrationList({
   const prevSearchRef = useRef<string>(searchQuery);
   // Track previous status filter to detect when it changes
   const prevStatusFilterRef = useRef<string>(statusFilter);
+  const prevAttachmentFilterRef = useRef<string>(attachmentFilter);
 
   // Initialize with server-side data on mount
   useEffect(() => {
@@ -93,20 +98,22 @@ export default function RegistrationList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confcode]);
 
-  // Handle status and search filter changes
+  // Handle status, attachment, and search filter changes
   useEffect(() => {
     const wasSearching = prevSearchRef.current !== '';
     const isSearching = searchQuery !== '';
     const statusFilterChanged = prevStatusFilterRef.current !== statusFilter;
+    const attachmentFilterChanged = prevAttachmentFilterRef.current !== attachmentFilter;
     prevSearchRef.current = searchQuery;
     prevStatusFilterRef.current = statusFilter;
+    prevAttachmentFilterRef.current = attachmentFilter;
 
-    // Fetch if: status filter changed, or we're searching, or we just cleared search
-    if (confcode && (statusFilterChanged || isSearching || wasSearching)) {
+    // Fetch if: status/attachment filter changed, or we're searching, or we just cleared search
+    if (confcode && (statusFilterChanged || attachmentFilterChanged || isSearching || wasSearching)) {
       fetchRegistrations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, searchQuery]);
+  }, [statusFilter, attachmentFilter, searchQuery]);
 
 
   // Calculate pagination
@@ -340,6 +347,32 @@ export default function RegistrationList({
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Confirmed</option>
                     <option value="REJECTED">Unsuccessful</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* With attached file filter */}
+              <div className="lg:w-64">
+                <label htmlFor="attachment" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  Attachment
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  <select
+                    id="attachment"
+                    value={attachmentFilter}
+                    onChange={(e) => setAttachmentFilter(e.target.value)}
+                    className="w-full pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900 font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="all">All</option>
+                    <option value="withFile">With attached file only</option>
                   </select>
                 </div>
               </div>

@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     const confcode = searchParams.get('confcode');
+    const withAttachment = searchParams.get('withAttachment');
 
     let query = supabase
       .from('regh')
@@ -189,7 +190,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const finalRegistrations = (allRegistrations || []).map((r: any) => {
+    let finalRegistrations = (allRegistrations || []).map((r: any) => {
       const regid = r?.regid;
       const regidKey = regid ? String(regid).trim() : null;
       const notification = Array.isArray(r.upload_notification)
@@ -204,6 +205,13 @@ export async function GET(request: NextRequest) {
         upload_notification: undefined,
       };
     });
+
+    // Filter to only submissions with attached file (payment proof) when requested
+    if (withAttachment === 'true' || withAttachment === '1') {
+      finalRegistrations = finalRegistrations.filter(
+        (r: any) => r.proof_uploaded_at != null && r.proof_uploaded_at !== ''
+      );
+    }
 
     return NextResponse.json({ registrations: finalRegistrations });
   } catch (error: any) {

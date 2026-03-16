@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { Conference } from '@/types';
@@ -13,9 +13,66 @@ export type BatchSummaryRow = {
   size_count: number;
 };
 
+/** One row for table/Excel: batch/lgu/province only on first row of group, then TOTAL row */
+export type GroupedDisplayRow = {
+  batch_num: number | '';
+  lgu: string;
+  province: string;
+  t_shirt: string;
+  size_count: number | string;
+  isTotal?: boolean;
+};
+
 interface BatchSummaryReportClientProps {
   initialConferences: Conference[];
   initialConfcode: string | null;
+}
+
+function buildGroupedRows(rows: BatchSummaryRow[]): GroupedDisplayRow[] {
+  if (rows.length === 0) return [];
+  const out: GroupedDisplayRow[] = [];
+  let currentBatch = rows[0].batch_num;
+  let currentLgu = rows[0].lgu;
+  let currentProvince = rows[0].province;
+  let batchSum = 0;
+  let firstInGroup = true;
+
+  for (const r of rows) {
+    if (r.batch_num !== currentBatch) {
+      out.push({
+        batch_num: '',
+        lgu: '',
+        province: '',
+        t_shirt: 'TOTAL',
+        size_count: batchSum,
+        isTotal: true,
+      });
+      batchSum = 0;
+      firstInGroup = true;
+      currentBatch = r.batch_num;
+      currentLgu = r.lgu;
+      currentProvince = r.province;
+    }
+    out.push({
+      batch_num: firstInGroup ? r.batch_num : '',
+      lgu: firstInGroup ? r.lgu : '',
+      province: firstInGroup ? r.province : '',
+      t_shirt: r.t_shirt || '—',
+      size_count: r.size_count,
+      isTotal: false,
+    });
+    batchSum += r.size_count;
+    firstInGroup = false;
+  }
+  out.push({
+    batch_num: '',
+    lgu: '',
+    province: '',
+    t_shirt: 'TOTAL',
+    size_count: batchSum,
+    isTotal: true,
+  });
+  return out;
 }
 
 export default function BatchSummaryReportClient({
@@ -32,6 +89,20 @@ export default function BatchSummaryReportClient({
   const [exporting, setExporting] = useState(false);
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
+
+  const groupedRows = useMemo(() => buildGroupedRows(rows), [rows]);
+
+  /** Total count per T-shirt size (all batches) for the second Excel sheet */
+  const totalsPerSize = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of rows) {
+      const size = r.t_shirt || 'UNSPECIFIED';
+      map[size] = (map[size] || 0) + r.size_count;
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([t_shirt, total_count]) => ({ 'T SHIRT': t_shirt, 'TOTAL COUNT': total_count }));
+  }, [rows]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -77,15 +148,15 @@ export default function BatchSummaryReportClient({
   };
 
   const handleExportExcel = () => {
-    if (!selectedConfcode || rows.length === 0) return;
+    if (!selectedConfcode || groupedRows.length === 0) return;
 
     setExporting(true);
     try {
       const confName = selectedConference?.name || selectedConfcode;
       const safeConfName = (confName || '').replace(/[^a-zA-Z0-9]/g, '_');
 
-      const exportData = rows.map((r) => ({
-        'BATCH NUM': r.batch_num,
+      const exportData = groupedRows.map((r) => ({
+        'BATCH N': r.batch_num === '' ? '' : r.batch_num,
         LGU: r.lgu || '',
         PROVINCE: r.province || '',
         'T SHIRT': r.t_shirt || '',
@@ -102,6 +173,11 @@ export default function BatchSummaryReportClient({
         { wch: 12 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Batch Summary');
+
+      const totalsSheet = XLSX.utils.json_to_sheet(totalsPerSize);
+      totalsSheet['!cols'] = [{ wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, totalsSheet, 'Totals per Size');
+
       XLSX.writeFile(wb, `${safeConfName}_batch_summary.xlsx`);
     } catch (err: any) {
       console.error('Export error:', err);
@@ -144,7 +220,7 @@ export default function BatchSummaryReportClient({
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <button
               onClick={handleExportExcel}
-              disabled={exporting || loading || rows.length === 0}
+              disabled={exporting || loading || groupedRows.length === 0}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow-md transition-colors flex-1 sm:flex-none"
             >
               {exporting ? (
@@ -233,7 +309,7 @@ export default function BatchSummaryReportClient({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    BATCH NUM
+                    BATCH N
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     LGU
@@ -250,19 +326,22 @@ export default function BatchSummaryReportClient({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {rows.map((row, idx) => (
-                  <tr key={`${row.batch_num}-${row.t_shirt}-${idx}`} className="hover:bg-gray-50">
+                {groupedRows.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className={`hover:bg-gray-50 ${row.isTotal ? 'bg-gray-100 font-semibold' : ''}`}
+                  >
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {row.batch_num}
+                      {row.batch_num === '' ? '' : row.batch_num}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {row.lgu || '—'}
+                      {row.lgu || ''}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {row.province || '—'}
+                      {row.province || ''}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {row.t_shirt || '—'}
+                      {row.t_shirt}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
                       {row.size_count}
