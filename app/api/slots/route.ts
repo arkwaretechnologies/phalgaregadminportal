@@ -46,54 +46,63 @@ async function getRegistrationLimit(confcode: string | null): Promise<number | n
   return Math.floor(n);
 }
 
-async function getUsedSlotsFromRegD(confcode: string | null): Promise<number> {
-  // Count participants (regD rows) for registrations that are PENDING or APPROVED.
-  // REJECTED registrations are excluded (their slots are freed up).
-  // Treat NULL status as PENDING to match UI behavior.
-  // Filter by confcode if provided
-  // Use regid instead of batchnum because PENDING registrations don't have batchnum yet
-  let query = supabase
-    .from('regh')
-    .select('regid');
+async function getUsedSlots(confcode: string | null): Promise<number> {
+  // Count participants (regd rows) whose parent registration (regh) is PENDING or APPROVED.
+  // REJECTED registrations are excluded — their slots are freed.
+  // NULL status is treated as PENDING.
+  //
+  // Supabase caps SELECT responses at 1000 rows by default, so we must
+  // paginate through all eligible regh rows to collect every regid.
+  const PAGE_SIZE = 1000;
+  const allRegids: string[] = [];
+  let from = 0;
+  let hasMore = true;
 
-  if (confcode) {
-    query = query.eq('confcode', confcode);
+  while (hasMore) {
+    let query = supabase
+      .from('regh')
+      .select('regid');
+
+    if (confcode) {
+      query = query.eq('confcode', confcode);
+    }
+
+    query = query.or('status.in.(PENDING,APPROVED),status.is.null');
+    query = query.range(from, from + PAGE_SIZE - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching eligible regids:', error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      for (const r of data) {
+        const id = (r as any)?.regid;
+        if (id != null && id !== '') allRegids.push(id);
+      }
+      from += PAGE_SIZE;
+      hasMore = data.length === PAGE_SIZE;
+    } else {
+      hasMore = false;
+    }
   }
 
-  // Include PENDING, APPROVED, and NULL status (treat NULL as PENDING)
-  // Exclude REJECTED
-  query = query.or('status.in.(PENDING,APPROVED),status.is.null');
+  if (allRegids.length === 0) return 0;
 
-  const { data: eligibleRegs, error: reghError } = await query;
-
-  if (reghError) {
-    console.error('Error fetching eligible regids:', reghError);
-    return 0;
-  }
-
-  const regids = (eligibleRegs || [])
-    .map((r: any) => r?.regid)
-    .filter((id: any) => id != null && id !== '');
-
-  if (regids.length === 0) return 0;
-
-  // Chunk to avoid URL length / parameter limits.
+  // Count regd rows for the collected regids. No additional confcode filter
+  // on regd — the regids already belong to the correct conference, and
+  // regd.confcode may be null for some rows.
   const CHUNK_SIZE = 500;
   let total = 0;
 
-  for (let i = 0; i < regids.length; i += CHUNK_SIZE) {
-    const chunk = regids.slice(i, i + CHUNK_SIZE);
-    let regdQuery = supabase
+  for (let i = 0; i < allRegids.length; i += CHUNK_SIZE) {
+    const chunk = allRegids.slice(i, i + CHUNK_SIZE);
+    const { count, error: regdError } = await supabase
       .from('regd')
       .select('regid', { count: 'exact', head: true })
       .in('regid', chunk);
-
-    // Also filter by confcode if provided
-    if (confcode) {
-      regdQuery = regdQuery.eq('confcode', confcode);
-    }
-
-    const { count, error: regdError } = await regdQuery;
 
     if (regdError) {
       console.error('Error counting regd rows:', regdError);
@@ -115,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     const [limit, used] = await Promise.all([
       getRegistrationLimit(confcode),
-      getUsedSlotsFromRegD(confcode),
+      getUsedSlots(confcode),
     ]);
 
     const remaining = limit === null ? null : Math.max(0, limit - used);
