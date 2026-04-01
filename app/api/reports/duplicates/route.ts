@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
       province: string | null;
       lgu: string | null;
       count: number;
+      earliest_regdate: string | null;
       participants: any[];
     }> = [];
 
