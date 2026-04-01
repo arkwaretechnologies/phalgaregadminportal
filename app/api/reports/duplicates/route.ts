@@ -152,6 +152,14 @@ export async function GET(request: NextRequest) {
       const list = keyToParticipants[key];
       if (list.length <= 1) continue;
       const first = list[0];
+      const regdates = list
+        .map((p: any) => p.registration?.regdate)
+        .filter((d: any) => d != null)
+        .map((d: string) => new Date(d).getTime());
+      const earliestRegdate = regdates.length > 0
+        ? new Date(Math.min(...regdates)).toISOString()
+        : null;
+
       groups.push({
         confcode: first.confcode ?? null,
         lastname: first.lastname ?? null,
@@ -160,6 +168,7 @@ export async function GET(request: NextRequest) {
         province: first.province ?? null,
         lgu: first.lgu ?? null,
         count: list.length,
+        earliest_regdate: earliestRegdate,
         participants: list,
       });
     }

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
 
+type SortMode = 'alphabetical' | 'submission_date';
+
 interface DuplicateGroup {
   confcode: string | null;
   lastname: string | null;
@@ -13,6 +15,7 @@ interface DuplicateGroup {
   province: string | null;
   lgu: string | null;
   count: number;
+  earliest_regdate: string | null;
   participants: Array<{
     regid: string;
     linenum: number;
@@ -68,6 +71,7 @@ export default function DuplicatesReportClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('alphabetical');
 
   const selectedConference = conferences.find((c) => c.confcode === selectedConfcode);
 
@@ -128,6 +132,15 @@ export default function DuplicatesReportClient({
     params.set('status', status);
     router.push(`/dashboard/reports/duplicates?${params.toString()}`);
   };
+
+  const sortedGroups = React.useMemo(() => {
+    if (sortMode === 'alphabetical') return groups;
+    return [...groups].sort((a, b) => {
+      const aDate = a.earliest_regdate ? new Date(a.earliest_regdate).getTime() : 0;
+      const bDate = b.earliest_regdate ? new Date(b.earliest_regdate).getTime() : 0;
+      return bDate - aDate; // newest first
+    });
+  }, [groups, sortMode]);
 
   const groupKey = (g: DuplicateGroup) =>
     `${g.confcode ?? ''}\t${g.lastname ?? ''}\t${g.firstname ?? ''}\t${g.province ?? ''}\t${g.lgu ?? ''}`;
@@ -271,7 +284,7 @@ export default function DuplicatesReportClient({
       </div>
 
       <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Conference</label>
             <select
@@ -296,6 +309,17 @@ export default function DuplicatesReportClient({
               <option value="ALL">All (Pending + Approved)</option>
               <option value="PENDING">Pending only</option>
               <option value="APPROVED">Approved only</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 bg-white text-gray-900 text-sm sm:text-base"
+            >
+              <option value="alphabetical">Alphabetical (Last Name)</option>
+              <option value="submission_date">Submission Date (Newest First)</option>
             </select>
           </div>
         </div>
@@ -372,7 +396,7 @@ export default function DuplicatesReportClient({
             </div>
           </div>
 
-          {groups.length === 0 ? (
+          {sortedGroups.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center text-gray-500">
               No duplicate groups (same name + province + LGU) found for the selected conference and status.
             </div>
@@ -395,13 +419,18 @@ export default function DuplicatesReportClient({
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         LGU
                       </th>
+                      {sortMode === 'submission_date' && (
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Earliest Submitted
+                        </th>
+                      )}
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Count
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {groups.map((g) => {
+                    {sortedGroups.map((g) => {
                       const key = groupKey(g);
                       const isExpanded = expandedKeys.has(key);
                       const nameLast = g.lastname ?? '—';
@@ -429,11 +458,16 @@ export default function DuplicatesReportClient({
                             <td className="px-4 py-3 text-sm text-gray-700">{nameFirst}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{g.province ?? '—'}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{g.lgu ?? '—'}</td>
+                            {sortMode === 'submission_date' && (
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {formatDate(g.earliest_regdate)}
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-sm text-gray-700">{g.count}</td>
                           </tr>
                           {isExpanded && (
                             <tr>
-                              <td colSpan={6} className="px-4 py-0 bg-gray-50">
+                              <td colSpan={sortMode === 'submission_date' ? 7 : 6} className="px-4 py-0 bg-gray-50">
                                 <div className="py-3 pl-6 space-y-2">
                                   {g.participants.map((p, idx) => {
                                     const reg = p.registration;
