@@ -155,7 +155,7 @@ export default function DuplicatesReportClient({
   };
 
   const handleExportExcel = () => {
-    if (!selectedConfcode || groups.length === 0) return;
+    if (!selectedConfcode || sortedGroups.length === 0) return;
 
     setExporting(true);
     try {
@@ -169,7 +169,7 @@ export default function DuplicatesReportClient({
             : 'All';
 
       const rows: (string | number)[][] = [];
-      for (const g of groups) {
+      for (const g of sortedGroups) {
         const nameDisplay = [g.lastname, g.firstname, g.suffix].filter((v) => v && v !== 'N/A').join(', ') || 'N/A';
         for (const p of g.participants) {
           const reg = p.registration;
