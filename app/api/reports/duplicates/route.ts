@@ -85,26 +85,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ groups: [] });
     }
 
-    // Fetch all regd rows for these registrations
-    const { data: regdRows, error: regdError } = await fetchAllRecords(
-      'regd',
-      (query) =>
-        query
-          .in('regid', regids)
-          .eq('confcode', confcode.trim())
-          .order('regid', { ascending: true })
-          .order('linenum', { ascending: true })
-    );
+    // Fetch all regd rows for these registrations (chunk .in() to avoid URL length limits)
+    const CHUNK_SIZE = 200;
+    const allParticipants: any[] = [];
 
-    if (regdError) {
-      console.error('Error fetching participants:', regdError);
-      return NextResponse.json(
-        { error: 'Failed to fetch participants' },
-        { status: 500 }
+    for (let i = 0; i < regids.length; i += CHUNK_SIZE) {
+      const chunk = regids.slice(i, i + CHUNK_SIZE);
+      const { data: regdRows, error: regdError } = await fetchAllRecords(
+        'regd',
+        (query) =>
+          query
+            .in('regid', chunk)
+            .eq('confcode', confcode.trim())
+            .order('regid', { ascending: true })
+            .order('linenum', { ascending: true })
       );
-    }
 
-    const allParticipants = regdRows || [];
+      if (regdError) {
+        console.error('Error fetching participants:', regdError);
+        return NextResponse.json(
+          { error: 'Failed to fetch participants' },
+          { status: 500 }
+        );
+      }
+
+      allParticipants.push(...(regdRows || []));
+    }
 
     // Attach registration summary to each participant
     const participantsWithReg = allParticipants.map((p: any) => {
