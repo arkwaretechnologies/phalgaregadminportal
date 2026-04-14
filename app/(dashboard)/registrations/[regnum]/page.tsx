@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { RegistrationDetail } from '@/types';
 import RegistrationDetailClient from './RegistrationDetailClient';
+import { attachConferenceIsAnc } from '@/lib/attach-conference-is-anc';
 
 // Force dynamic rendering - this page requires authentication and database access
 export const dynamic = 'force-dynamic';
@@ -32,10 +33,10 @@ async function getRegistration(batchnum: number): Promise<RegistrationDetail | n
       regd = data || undefined;
     }
 
-    return {
+    return attachConferenceIsAnc({
       ...registration,
       regd,
-    };
+    });
   } catch (error) {
     console.error('Error fetching registration:', error);
     return null;

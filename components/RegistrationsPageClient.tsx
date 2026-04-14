@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import RegistrationList from '@/components/RegistrationList';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import type { Registration, Conference } from '@/types';
@@ -74,10 +74,12 @@ export default function RegistrationsPageClient({
   initialRegistrations,
   initialConfcode,
   initialSearch = '',
+  initialHideProvinceLgu = false,
 }: {
   initialRegistrations: Registration[];
   initialConfcode?: string | null;
   initialSearch?: string;
+  initialHideProvinceLgu?: boolean;
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -127,6 +129,14 @@ export default function RegistrationsPageClient({
   const handleRegistrationsChanged = useCallback(() => {
     setRefreshNonce((n) => n + 1);
   }, []);
+
+  const hideProvinceLgu = useMemo(() => {
+    const c = conferences.find((x) => x.confcode === selectedConfcode);
+    if (c) {
+      return String(c.is_anc ?? '').toUpperCase() === 'Y';
+    }
+    return initialHideProvinceLgu;
+  }, [conferences, selectedConfcode, initialHideProvinceLgu]);
 
   const handleConferenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -200,6 +210,7 @@ export default function RegistrationsPageClient({
         onRegistrationsChanged={handleRegistrationsChanged}
         confcode={selectedConfcode}
         initialSearch={initialSearch}
+        hideProvinceLgu={hideProvinceLgu}
       />
     </div>
   );

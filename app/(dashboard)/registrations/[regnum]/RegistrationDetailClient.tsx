@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { conferenceIsAnc } from '@/lib/conference-is-anc';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -18,6 +19,9 @@ const REGISTRATION_FEE = 7500;
 export default function RegistrationDetailClient({
   registration,
 }: RegistrationDetailClientProps) {
+  const isAnc = conferenceIsAnc(registration.is_anc);
+  const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
+  const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [participantToDelete, setParticipantToDelete] = useState<RegistrationDetailItem | null>(null);
@@ -185,7 +189,7 @@ export default function RegistrationDetailClient({
 
   return (
     <>
-      <div>
+      <div className={isAnc ? 'w-full min-w-0 max-w-7xl 2xl:max-w-[min(90rem,100%)] mx-auto' : 'w-full min-w-0'}>
         <div className="mb-6">
           <button
             onClick={() => router.push('/dashboard')}
@@ -234,14 +238,18 @@ export default function RegistrationDetailClient({
               <p className="text-sm text-gray-500 mb-1">Registration Date</p>
               <p className="text-base font-medium">{formatDate(registration.regdate)}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Province</p>
-              <p className="text-base font-medium">{registration.province || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">LGU</p>
-              <p className="text-base font-medium">{registration.lgu || 'N/A'}</p>
-            </div>
+            {!isAnc && (
+              <>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Province</p>
+                  <p className="text-base font-medium">{registration.province || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">LGU</p>
+                  <p className="text-base font-medium">{registration.lgu || 'N/A'}</p>
+                </div>
+              </>
+            )}
             <div>
               <p className="text-sm text-gray-500 mb-1">Contact Person</p>
               <p className="text-base font-medium">{registration.contactperson || 'N/A'}</p>
@@ -282,28 +290,53 @@ export default function RegistrationDetailClient({
         </div>
 
         {registration.regd && registration.regd.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className={`bg-white rounded-lg shadow-md ${isAnc ? 'p-4 sm:p-5' : 'p-6'}`}>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Participants ({registration.regd.length})
             </h2>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto w-full min-w-0">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                    >
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                    >
                       Designation
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Barangay
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {isAnc ? (
+                      <>
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          Province
+                        </th>
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          LGU
+                        </th>
+                      </>
+                    ) : (
+                      <th
+                        className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                      >
+                        Barangay
+                      </th>
+                    )}
+                    <th
+                      className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                    >
                       T-Shirt Size
                     </th>
                     {registration.status !== 'APPROVED' && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                      >
                         Actions
                       </th>
                     )}
@@ -312,16 +345,29 @@ export default function RegistrationDetailClient({
                 <tbody className="bg-white divide-y divide-gray-200">
                   {registration.regd.map((item, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td
+                        className={`${participantTdPad} whitespace-nowrap text-sm font-medium text-gray-900`}
+                      >
                         {item.lastname}, {item.firstname} {item.middleinit || ''}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                         {item.designation || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.brgy || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {isAnc ? (
+                        <>
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {item.province || 'N/A'}
+                          </td>
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {item.lgu || 'N/A'}
+                          </td>
+                        </>
+                      ) : (
+                        <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                          {item.brgy || 'N/A'}
+                        </td>
+                      )}
+                      <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                         <span className="inline-flex items-center gap-1.5">
                           {item.tshirtsize || 'N/A'}
                           <button
@@ -336,7 +382,7 @@ export default function RegistrationDetailClient({
                         </span>
                       </td>
                       {registration.status !== 'APPROVED' && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
                             onClick={() => setParticipantToDelete(item)}
                             className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"

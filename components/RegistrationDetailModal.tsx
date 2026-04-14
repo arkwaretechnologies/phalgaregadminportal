@@ -6,6 +6,7 @@ import ApprovalModal from './ApprovalModal';
 import CountdownTimer from './CountdownTimer';
 import PaymentProofViewer from './PaymentProofViewer';
 import LoadingSpinner from './LoadingSpinner';
+import { conferenceIsAnc } from '@/lib/conference-is-anc';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -259,13 +260,26 @@ export default function RegistrationDetailModal({
   const REGISTRATION_FEE = 7500;
   const participantCount = currentRegistration.regd?.length ?? 0;
   const expectedTotalPayment = participantCount * REGISTRATION_FEE;
+  const isAnc = conferenceIsAnc(currentRegistration.is_anc);
+  const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
+  const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
 
   if (!isOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8">
+      <div
+        className={`fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 overflow-y-auto ${
+          isAnc ? 'p-2 sm:p-4' : 'p-4'
+        }`}
+      >
+        <div
+          className={`bg-white rounded-lg shadow-xl w-full min-w-0 max-h-[90vh] overflow-y-auto my-4 sm:my-8 ${
+            isAnc
+              ? 'max-w-7xl 2xl:max-w-[min(90rem,calc(100vw-2rem))]'
+              : 'max-w-4xl'
+          }`}
+        >
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-start justify-between gap-4 z-20">
             <div className="min-w-0">
@@ -321,14 +335,18 @@ export default function RegistrationDetailModal({
                   <p className="text-sm text-gray-500 mb-1">Registration Date</p>
                   <p className="text-base font-medium text-gray-900">{formatDate(currentRegistration.regdate)}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Province</p>
-                  <p className="text-base font-medium text-gray-900">{currentRegistration.province || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">LGU</p>
-                  <p className="text-base font-medium text-gray-900">{currentRegistration.lgu || 'N/A'}</p>
-                </div>
+                {!isAnc && (
+                  <>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Province</p>
+                      <p className="text-base font-medium text-gray-900">{currentRegistration.province || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">LGU</p>
+                      <p className="text-base font-medium text-gray-900">{currentRegistration.lgu || 'N/A'}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Contact Person</p>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.contactperson || 'N/A'}</p>
@@ -400,28 +418,53 @@ export default function RegistrationDetailModal({
 
             {/* Participants */}
             {currentRegistration.regd && currentRegistration.regd.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+              <div className={`bg-gray-50 rounded-lg ${isAnc ? 'p-3 sm:p-4' : 'p-4 sm:p-6'}`}>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Participants ({currentRegistration.regd.length})
                 </h3>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto w-full min-w-0">
                   <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
                           Name
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
                           Designation
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Barangay
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {isAnc ? (
+                          <>
+                            <th
+                              className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                            >
+                              Province
+                            </th>
+                            <th
+                              className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                            >
+                              LGU
+                            </th>
+                          </>
+                        ) : (
+                          <th
+                            className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                          >
+                            Barangay
+                          </th>
+                        )}
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
                           T-Shirt Size
                         </th>
                         {currentRegistration.status !== 'APPROVED' && (
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th
+                            className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                          >
                             Actions
                           </th>
                         )}
@@ -430,16 +473,29 @@ export default function RegistrationDetailModal({
                     <tbody className="bg-white divide-y divide-gray-200">
                       {currentRegistration.regd.map((item, index) => (
                         <tr key={index}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td
+                            className={`${participantTdPad} whitespace-nowrap text-sm font-medium text-gray-900`}
+                          >
                             {item.lastname}, {item.firstname} {item.middleinit || ''}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                             {item.designation || 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.brgy || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {isAnc ? (
+                            <>
+                              <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                                {item.province || 'N/A'}
+                              </td>
+                              <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                                {item.lgu || 'N/A'}
+                              </td>
+                            </>
+                          ) : (
+                            <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                              {item.brgy || 'N/A'}
+                            </td>
+                          )}
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                             <span className="inline-flex items-center gap-1.5">
                               {item.tshirtsize || 'N/A'}
                               <button
@@ -454,7 +510,7 @@ export default function RegistrationDetailModal({
                             </span>
                           </td>
                           {currentRegistration.status !== 'APPROVED' && (
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                               <button
                                 onClick={() => setParticipantToDelete(item)}
                                 className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"

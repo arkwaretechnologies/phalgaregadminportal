@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { RegistrationDetail } from '@/types';
+import { attachConferenceIsAnc } from '@/lib/attach-conference-is-anc';
 
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -115,7 +116,9 @@ export async function GET(
       upload_notification: undefined,
     };
 
-    return NextResponse.json({ registration: registrationDetail });
+    const withConference = await attachConferenceIsAnc(registrationDetail);
+
+    return NextResponse.json({ registration: withConference });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

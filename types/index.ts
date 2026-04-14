@@ -29,6 +29,8 @@ export interface Registration {
 
 export interface RegistrationDetail extends Registration {
   regd?: RegistrationDetailItem[];
+  /** From `conference.is_anc` when loading detail; 'Y' = ANC (header LGU/Province hidden; participant Province/LGU shown, Barangay hidden). */
+  is_anc?: string | null;
 }
 
 export interface RegistrationDetailItem {
@@ -58,6 +60,8 @@ export interface Conference {
   venue: string | null;
   reg_limit: number | null;
   domain: string | null;
+  /** When 'Y', LGU/Province are not used for this conference (ANC flow). */
+  is_anc?: string | null;
 }
 
 export interface Position {

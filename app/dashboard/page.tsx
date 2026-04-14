@@ -176,11 +176,22 @@ export default async function DashboardPage({
   
   const registrations = await getRegistrations(status, search, confcode);
 
+  let initialHideProvinceLgu = false;
+  if (confcode) {
+    const { data: confMeta } = await supabase
+      .from('conference')
+      .select('is_anc')
+      .eq('confcode', confcode)
+      .maybeSingle();
+    initialHideProvinceLgu = String(confMeta?.is_anc ?? '').toUpperCase() === 'Y';
+  }
+
   return (
     <RegistrationsPageClient
       initialRegistrations={registrations}
       initialConfcode={confcode}
       initialSearch={search}
+      initialHideProvinceLgu={initialHideProvinceLgu}
     />
   );
 }

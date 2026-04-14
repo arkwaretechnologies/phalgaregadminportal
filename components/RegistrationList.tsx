@@ -12,6 +12,8 @@ interface RegistrationListProps {
   onRegistrationsChanged?: () => void;
   confcode?: string | null;
   initialSearch?: string;
+  /** When true, Province and LGU columns are hidden (conference `is_anc` = Y). */
+  hideProvinceLgu?: boolean;
 }
 
 export default function RegistrationList({
@@ -19,6 +21,7 @@ export default function RegistrationList({
   onRegistrationsChanged,
   confcode,
   initialSearch = '',
+  hideProvinceLgu = false,
 }: RegistrationListProps) {
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
@@ -433,16 +436,20 @@ export default function RegistrationList({
                   </div>
 
                   <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-500">Province</span>
-                      <span className="text-gray-900 text-right">
-                        {registration.province || 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-gray-500">LGU</span>
-                      <span className="text-gray-900 text-right">{registration.lgu || 'N/A'}</span>
-                    </div>
+                    {!hideProvinceLgu && (
+                      <>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-gray-500">Province</span>
+                          <span className="text-gray-900 text-right">
+                            {registration.province || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-gray-500">LGU</span>
+                          <span className="text-gray-900 text-right">{registration.lgu || 'N/A'}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-gray-500">Contact</span>
                       <span className="text-gray-900 text-right">
@@ -540,12 +547,16 @@ export default function RegistrationList({
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Registration Date
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Province
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        LGU
-                      </th>
+                      {!hideProvinceLgu && (
+                        <>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Province
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            LGU
+                          </th>
+                        </>
+                      )}
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Contact Person
                       </th>
@@ -592,16 +603,20 @@ export default function RegistrationList({
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {registration.province || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {registration.lgu || 'N/A'}
-                        </div>
-                      </td>
+                      {!hideProvinceLgu && (
+                        <>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {registration.province || 'N/A'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {registration.lgu || 'N/A'}
+                            </div>
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-2 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {registration.contactperson || 'N/A'}
