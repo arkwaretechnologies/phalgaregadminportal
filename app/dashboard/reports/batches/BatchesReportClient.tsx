@@ -359,7 +359,7 @@ export default function BatchesReportClient({
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text(
-          'Philippine Association of Local Government Accounts',
+          'Philippine Association of Local Government Accountants, Inc.',
           pageWidth / 2,
           y,
           { align: 'center' }
