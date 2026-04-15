@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
+/** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
+const REGID_IN_CHUNK_SIZE = 120;
+
 // Helper function to fetch all records without Supabase's default 1000 row limit
 async function fetchAllRecords(
+  client: SupabaseClient,
   table: string,
   queryBuilder: (query: any) => any,
   pageSize: number = 1000
@@ -16,7 +21,7 @@ async function fetchAllRecords(
   let hasMore = true;
 
   while (hasMore) {
-    let query = supabase.from(table).select('*');
+    let query = client.from(table).select('*');
     query = queryBuilder(query);
     query = query.range(from, from + pageSize - 1);
 
@@ -37,6 +42,41 @@ async function fetchAllRecords(
   }
 
   return { data: allData, error: null };
+}
+
+async function fetchRegdepForRegIds(
+  client: SupabaseClient,
+  regids: string[],
+  confcode: string | null,
+  pageSize: number
+): Promise<{ data: any[]; error: any }> {
+  const merged: any[] = [];
+
+  for (let i = 0; i < regids.length; i += REGID_IN_CHUNK_SIZE) {
+    const chunk = regids.slice(i, i + REGID_IN_CHUNK_SIZE);
+    const { data, error } = await fetchAllRecords(
+      client,
+      'regdep',
+      (query) => {
+        let q = query.in('regid', chunk).order('regid', { ascending: true });
+        if (confcode) {
+          q = q.eq('confcode', confcode);
+        }
+        return q;
+      },
+      pageSize
+    );
+    if (error) {
+      return { data: [], error };
+    }
+    if (data?.length) {
+      merged.push(...data);
+    }
+  }
+
+  merged.sort((a, b) => String(a.regid ?? '').localeCompare(String(b.regid ?? '')));
+
+  return { data: merged, error: null };
 }
 
 // Helper function to escape CSV values
@@ -79,6 +119,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch approved registrations, optionally filtered by conference (no row limit)
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
+      supabaseServer,
       'regh',
       (query) => {
         query = query.eq('status', 'APPROVED').order('regdate', { ascending: false }).order('regid', { ascending: true });
@@ -99,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     if (!approvedRegistrations || approvedRegistrations.length === 0) {
       // Get regdep columns structure for empty CSV with headers
-      const { data: sampleDependents } = await supabase
+      const { data: sampleDependents } = await supabaseServer
         .from('regdep')
         .select('*')
         .limit(1);
@@ -159,16 +200,11 @@ export async function GET(request: NextRequest) {
 
     if (regids.length > 0) {
       // Fetch all dependents without row limit
-      const { data, error } = await fetchAllRecords(
-        'regdep',
-        (query) => {
-          query = query.in('regid', regids).order('regid', { ascending: true });
-          // Also filter by confcode if provided
-          if (confcode) {
-            query = query.eq('confcode', confcode);
-          }
-          return query;
-        }
+      const { data, error } = await fetchRegdepForRegIds(
+        supabaseServer,
+        regids,
+        confcode,
+        1000
       );
       dependents = data || [];
       dependentError = error;

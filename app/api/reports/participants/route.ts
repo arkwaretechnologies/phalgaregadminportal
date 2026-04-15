@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+/** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
+const REGID_IN_CHUNK_SIZE = 120;
+
 // Helper function to fetch all records without Supabase's default 1000 row limit
 async function fetchAllRecords(
+  client: SupabaseClient,
   table: string,
   queryBuilder: (query: any) => any,
   pageSize: number = 1000
@@ -16,7 +21,7 @@ async function fetchAllRecords(
   let hasMore = true;
 
   while (hasMore) {
-    let query = supabase.from(table).select('*');
+    let query = client.from(table).select('*');
     query = queryBuilder(query);
     query = query.range(from, from + pageSize - 1);
 
@@ -38,6 +43,40 @@ async function fetchAllRecords(
   return { data: allData, error: null };
 }
 
+async function fetchRegdByRegIds(
+  client: SupabaseClient,
+  regids: string[],
+  pageSize: number
+): Promise<{ data: any[]; error: any }> {
+  const merged: any[] = [];
+
+  for (let i = 0; i < regids.length; i += REGID_IN_CHUNK_SIZE) {
+    const chunk = regids.slice(i, i + REGID_IN_CHUNK_SIZE);
+    const { data, error } = await fetchAllRecords(
+      client,
+      'regd',
+      (query) =>
+        query.in('regid', chunk).order('regid', { ascending: true }).order('linenum', { ascending: true }),
+      pageSize
+    );
+    if (error) {
+      return { data: [], error };
+    }
+    if (data?.length) {
+      merged.push(...data);
+    }
+  }
+
+  merged.sort((a, b) => {
+    const ra = String(a.regid ?? '');
+    const rb = String(b.regid ?? '');
+    if (ra !== rb) return ra.localeCompare(rb);
+    return Number(a.linenum ?? 0) - Number(b.linenum ?? 0);
+  });
+
+  return { data: merged, error: null };
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and role
@@ -50,6 +89,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch approved registrations (no row limit)
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
+      supabaseServer,
       'regh',
       (query) => {
         query = query.eq('status', 'APPROVED').order('regdate', { ascending: false });
@@ -73,14 +113,10 @@ export async function GET(request: NextRequest) {
     let allParticipants: any[] = [];
 
     if (regids.length > 0) {
-      const { data: regdRows, error: regdError } = await fetchAllRecords(
-        'regd',
-        (query) => {
-          return query
-            .in('regid', regids)
-            .order('regid', { ascending: true })
-            .order('linenum', { ascending: true });
-        }
+      const { data: regdRows, error: regdError } = await fetchRegdByRegIds(
+        supabaseServer,
+        regids,
+        1000
       );
 
       if (regdError) {
