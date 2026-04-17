@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { getParticipantCountsByRegids } from '@/lib/regd-participant-counts';
 import { Registration, User } from '@/types';
 import RegistrationsPageClient from '@/components/RegistrationsPageClient';
 
@@ -60,36 +61,10 @@ async function getRegistrations(status: string = 'all', search: string = '', con
       return [];
     }
 
-    // Attach participant counts using individual count queries per regid
-    // Run ALL queries in parallel for speed (this approach works reliably)
-    const countsByRegid = new Map<string, number>();
-
-    // Get unique regids from registrations
-    const uniqueRegids = Array.from(
-      new Set(
-        registrations
-          .map((r: any) => r?.regid)
-          .filter((id: any) => id != null && id !== '')
-      )
+    const countsByRegid = await getParticipantCountsByRegids(
+      supabase,
+      (registrations || []).map((r: any) => r?.regid)
     );
-
-    if (uniqueRegids.length > 0) {
-      // Execute ALL count queries in parallel at once
-      const countPromises = uniqueRegids.map(async (regid: any) => {
-        const { count, error } = await supabase
-          .from('regd')
-          .select('*', { count: 'exact', head: true })
-          .eq('regid', regid);
-        
-        return { regid, count: error ? 0 : (count || 0) };
-      });
-
-      const results = await Promise.all(countPromises);
-      
-      for (const { regid, count } of results) {
-        countsByRegid.set(String(regid).trim(), count);
-      }
-    }
 
     return (registrations || []).map((r: any) => {
       // Flatten the nested upload_notification structure

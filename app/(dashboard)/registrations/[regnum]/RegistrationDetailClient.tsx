@@ -13,12 +13,16 @@ interface RegistrationDetailClientProps {
   registration: RegistrationDetail;
 }
 
-// Fixed registration fee per participant (to be made dynamic per conference later)
-const REGISTRATION_FEE = 7500;
+function resolvedRegistrationFee(reg_fee: RegistrationDetail['reg_fee']): number {
+  if (reg_fee === null || reg_fee === undefined) return 7500;
+  const n = typeof reg_fee === 'number' ? reg_fee : parseFloat(String(reg_fee).replace(/[₱,\s]/g, ''));
+  return Number.isFinite(n) ? n : 7500;
+}
 
 export default function RegistrationDetailClient({
   registration,
 }: RegistrationDetailClientProps) {
+  const registrationFeePerParticipant = resolvedRegistrationFee(registration.reg_fee);
   const isAnc = conferenceIsAnc(registration.is_anc);
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
@@ -203,8 +207,8 @@ export default function RegistrationDetailClient({
           <p className="text-sm text-gray-600 mt-1">Registration ID: {registration.regid}</p>
           {registration.regd && registration.regd.length > 0 && (
             <p className="text-sm font-medium text-gray-900 mt-2">
-              Expected total payment: ₱{(registration.regd.length * REGISTRATION_FEE).toLocaleString('en-PH')}
-              <span className="text-gray-500 font-normal"> ({registration.regd.length} × ₱{REGISTRATION_FEE.toLocaleString('en-PH')})</span>
+              Expected total payment: ₱{(registration.regd.length * registrationFeePerParticipant).toLocaleString('en-PH')}
+              <span className="text-gray-500 font-normal"> ({registration.regd.length} × ₱{registrationFeePerParticipant.toLocaleString('en-PH')})</span>
             </p>
           )}
         </div>

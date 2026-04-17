@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase-server';
 import { RegistrationDetail } from '@/types';
 import RegistrationDetailClient from './RegistrationDetailClient';
 import { attachConferenceIsAnc } from '@/lib/attach-conference-is-anc';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 async function getRegistrationByRegid(regid: string): Promise<RegistrationDetail | null> {
   try {
-    const { data: registration, error: regError } = await supabase
+    const { data: registration, error: regError } = await supabaseServer
       .from('regh')
       .select('*')
       .eq('regid', regid)
@@ -22,7 +22,7 @@ async function getRegistrationByRegid(regid: string): Promise<RegistrationDetail
 
     let regd = undefined;
     if (registration.regid) {
-      const { data } = await supabase
+      const { data } = await supabaseServer
         .from('regd')
         .select('*')
         .eq('regid', registration.regid)
@@ -39,7 +39,7 @@ async function getRegistrationByRegid(regid: string): Promise<RegistrationDetail
 
 async function getRegistrationByBatchnum(batchnum: number): Promise<RegistrationDetail | null> {
   try {
-    const { data: registration, error: regError } = await supabase
+    const { data: registration, error: regError } = await supabaseServer
       .from('regh')
       .select('*')
       .eq('batchnum', batchnum)
@@ -51,7 +51,7 @@ async function getRegistrationByBatchnum(batchnum: number): Promise<Registration
 
     let regd = undefined;
     if (registration.regid) {
-      const { data } = await supabase
+      const { data } = await supabaseServer
         .from('regd')
         .select('*')
         .eq('regid', registration.regid)

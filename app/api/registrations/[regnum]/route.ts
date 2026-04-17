@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import { RegistrationDetail } from '@/types';
 import { attachConferenceIsAnc } from '@/lib/attach-conference-is-anc';
@@ -25,7 +25,7 @@ export async function GET(
     let regError = null;
 
     // First, try to find by regid (this works for both pending and approved)
-    const { data: regById, error: errorById } = await supabase
+    const { data: regById, error: errorById } = await supabaseServer
       .from('regh')
       .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
       .eq('regid', decodedRegnum)
@@ -39,7 +39,7 @@ export async function GET(
       const isNumeric = !isNaN(batchnum) && /^\d+$/.test(params.regnum);
       
       if (isNumeric) {
-        const { data: regByBatch, error: errorByBatch } = await supabase
+        const { data: regByBatch, error: errorByBatch } = await supabaseServer
           .from('regh')
           .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
           .eq('batchnum', batchnum)
@@ -72,7 +72,7 @@ export async function GET(
     // Fetch registration details (from regd table if exists)
     // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
     const { data: regd, error: regdError } = registration.regid
-      ? await supabase
+      ? await supabaseServer
           .from('regd')
           .select('*')
           .eq('regid', registration.regid)
@@ -89,7 +89,7 @@ export async function GET(
     let viewedAtIso: string | null = null;
     if (registration.regid) {
       viewedAtIso = new Date().toISOString();
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await supabaseServer
         .from('upload_notification')
         .upsert(
           {
@@ -182,7 +182,7 @@ export async function PATCH(
     // Find the registration by regid
     const decodedRegnum = decodeURIComponent(params.regnum);
 
-    const { data: existingReg, error: findError } = await supabase
+    const { data: existingReg, error: findError } = await supabaseServer
       .from('regh')
       .select('regid')
       .eq('regid', decodedRegnum)
@@ -201,7 +201,7 @@ export async function PATCH(
       // Store only digits for consistency
       updateData.contactnum = contactnum?.trim().replace(/\D/g, '') || null;
     }    // Update the registration
-    const { data: updatedReg, error: updateError } = await supabase
+    const { data: updatedReg, error: updateError } = await supabaseServer
       .from('regh')
       .update(updateData)
       .eq('regid', decodedRegnum)

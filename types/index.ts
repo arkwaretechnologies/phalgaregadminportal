@@ -31,6 +31,8 @@ export interface RegistrationDetail extends Registration {
   regd?: RegistrationDetailItem[];
   /** From `conference.is_anc` when loading detail; 'Y' = ANC (header LGU/Province hidden; participant Province/LGU shown, Barangay hidden). */
   is_anc?: string | null;
+  /** From `conference.reg_fee` when loading detail; normalized to a number on the server. */
+  reg_fee?: number | null;
 }
 
 export interface RegistrationDetailItem {
@@ -52,16 +54,29 @@ export interface RegistrationDetailItem {
   email: string | null;
 }
 
+/** Matches `public.conference` (see migrations / Supabase). */
 export interface Conference {
   confcode: string;
   name: string | null;
   date_from: string | null; // ISO date string
   date_to: string | null; // ISO date string
   venue: string | null;
+  /** `bigint` in DB */
   reg_limit: number | null;
   domain: string | null;
+  psgc: string | null;
+  prefix: string | null;
+  reg_alert_count: number | null;
+  include_psgc: string | null;
+  exclude_psgc: string | null;
+  on_maintenance: string | null;
+  notification: string | null;
+  linked_conference: string | null;
+  closed_conference: string | null;
   /** When 'Y', LGU/Province are not used for this conference (ANC flow). */
-  is_anc?: string | null;
+  is_anc: string | null;
+  /** `numeric` in DB (per-participant fee). PostgREST often serializes `numeric` as a JSON string. */
+  reg_fee: number | string | null;
 }
 
 export interface Position {
