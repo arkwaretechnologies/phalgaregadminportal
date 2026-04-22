@@ -385,13 +385,14 @@ export async function POST(request: NextRequest) {
       venue: string | null;
       date_from: string | null;
       date_to: string | null;
+      is_anc?: string | null;
     } | null = null;
     
     if (updatedRegistration.confcode) {
       try {
         const { data: conference, error: confError } = await supabase
           .from('conference')
-          .select('name, domain, venue, date_from, date_to')
+          .select('name, domain, venue, date_from, date_to, is_anc')
           .eq('confcode', updatedRegistration.confcode)
           .single();
         
@@ -412,6 +413,7 @@ export async function POST(request: NextRequest) {
       conferenceVenue: conferenceInfo?.venue || null,
       conferenceDateFrom: conferenceInfo?.date_from || null,
       conferenceDateTo: conferenceInfo?.date_to || null,
+      conferenceIsAnc: conferenceInfo?.is_anc || null,
     })
       .then((success) => {
         if (success) {

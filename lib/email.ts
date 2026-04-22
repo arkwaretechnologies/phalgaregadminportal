@@ -19,6 +19,8 @@ interface StatusUpdateEmailData {
   conferenceVenue?: string | null;
   conferenceDateFrom?: string | null;
   conferenceDateTo?: string | null;
+  /** When 'Y', hide Province/LGU in emails (ANC flow). */
+  conferenceIsAnc?: string | null;
 }
 
 function formatDate(date: string | null): string {
@@ -87,12 +89,13 @@ function escapeHtml(text: string | null): string {
 }
 
 function getEmailTemplate(data: StatusUpdateEmailData): string {
-  const { registration, status, remarks, conferenceName, conferenceDomain, conferenceVenue, conferenceDateFrom, conferenceDateTo } = data;
+  const { registration, status, remarks, conferenceName, conferenceDomain, conferenceVenue, conferenceDateFrom, conferenceDateTo, conferenceIsAnc } = data;
   const statusColor = getStatusColor(status);
   const statusBadgeStyle = getStatusBadgeColor(status);
   const greeting = registration.contactperson || 'Dear Participant';
   const escapedRemarks = escapeHtml(remarks || '');
   const conferenceDisplayName = conferenceName || registration.confcode || 'Conference';
+  const isAnc = String(conferenceIsAnc ?? '').toUpperCase() === 'Y';
   
   // Build registration portal URL based on conference domain
   let registrationPortalUrl = 'https://registration.phalga.org'; // Default fallback
@@ -187,14 +190,18 @@ function getEmailTemplate(data: StatusUpdateEmailData): string {
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280; width: 40%;">Registration Date & Time</td>
                     <td style="padding: 10px 0; font-size: 14px; color: #111827; font-weight: 500;">${formatDate(registration.regdate)}</td>
                   </tr>
-                  <tr>
+                  ${
+                    isAnc
+                      ? ''
+                      : `<tr>
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280;">Province</td>
                     <td style="padding: 10px 0; font-size: 14px; color: #111827; font-weight: 500;">${registration.province || 'N/A'}</td>
                   </tr>
                   <tr>
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280;">LGU</td>
                     <td style="padding: 10px 0; font-size: 14px; color: #111827; font-weight: 500;">${registration.lgu || 'N/A'}</td>
-                  </tr>
+                  </tr>`
+                  }
                   <tr>
                     <td style="padding: 10px 0; font-size: 14px; color: #6b7280;">Contact Number</td>
                     <td style="padding: 10px 0; font-size: 14px; color: #111827; font-weight: 500;">${registration.contactnum || 'N/A'}</td>
