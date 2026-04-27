@@ -324,6 +324,21 @@ export default function RegistrationDetailClient({
                         >
                           LGU
                         </th>
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          PRC No.
+                        </th>
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          Expiry Date
+                        </th>
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          Provincial League
+                        </th>
                       </>
                     ) : (
                       <th
@@ -364,6 +379,15 @@ export default function RegistrationDetailClient({
                           </td>
                           <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                             {item.lgu || 'N/A'}
+                          </td>
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {item.prcnum || 'N/A'}
+                          </td>
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {formatDate(item.expirydate)}
+                          </td>
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {registration.province || 'N/A'}
                           </td>
                         </>
                       ) : (

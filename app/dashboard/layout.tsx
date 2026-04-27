@@ -302,6 +302,16 @@ export default function DashboardLayout({
                     >
                       <span className="text-sm">Possible Duplicate Entry</span>
                     </Link>
+                    <Link
+                      href="/dashboard/reports/missing-prc"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/missing-prc'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Missing PRC No Participants</span>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -575,6 +585,17 @@ export default function DashboardLayout({
                     title="Possible Duplicate Entry"
                   >
                     <span className="text-sm">Possible Duplicate Entry</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/missing-prc"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/missing-prc'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Missing PRC No Participants"
+                  >
+                    <span className="text-sm">Missing PRC No Participants</span>
                   </Link>
                 </div>
               )}
