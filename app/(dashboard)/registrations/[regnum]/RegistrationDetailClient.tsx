@@ -6,6 +6,10 @@ import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
+import {
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  isApprovedStatus,
+} from '@/lib/registration-status';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -281,7 +285,7 @@ export default function RegistrationDetailClient({
             </div>
           )}
 
-          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
+          {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
             <div className="mt-6">
               <button
                 onClick={() => setShowModal(true)}
@@ -352,7 +356,7 @@ export default function RegistrationDetailClient({
                     >
                       T-Shirt Size
                     </th>
-                    {registration.status !== 'APPROVED' && (
+                    {!isApprovedStatus(registration.status) && (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                       >
@@ -409,7 +413,7 @@ export default function RegistrationDetailClient({
                           </button>
                         </span>
                       </td>
-                      {registration.status !== 'APPROVED' && (
+                      {!isApprovedStatus(registration.status) && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
                             onClick={() => setParticipantToDelete(item)}

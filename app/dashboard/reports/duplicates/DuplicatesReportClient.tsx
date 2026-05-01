@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
+import { APPROVED_PARTICIPANT_AND_ACCOMPANYING } from '@/lib/registration-status';
 import * as XLSX from 'xlsx';
 
 type SortMode = 'alphabetical' | 'submission_date';
@@ -482,7 +483,10 @@ export default function DuplicatesReportClient({
                                         </span>
                                         <span className="text-gray-500">
                                           {formatDate(reg?.regdate ?? null)} · {reg?.status ?? '—'}
-                                          {reg?.batchnum != null ? ` · Batch ${reg.batchnum}` : ''}
+                                          {reg?.batchnum != null &&
+                                          reg?.status !== APPROVED_PARTICIPANT_AND_ACCOMPANYING
+                                            ? ` · Batch ${reg.batchnum}`
+                                            : ''}
                                         </span>
                                         <a
                                           href={
