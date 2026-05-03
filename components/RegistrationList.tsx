@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Registration, RegistrationDetail } from '@/types';
 import {
-  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
   APPROVED_REPRESENTATIVE_ONLY,
   isApprovedStatus,
   isAwardRepresentativePhaseDbStatus,
@@ -179,14 +181,24 @@ export default function RegistrationList({
             CONFIRMED{batchnum ? ` Batch ${batchnum}` : ''}
           </span>
         );
-      case APPROVED_PARTICIPANT_AND_ACCOMPANYING:
+      case ACCEPTED_AWARD_STATUS:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 max-w-xs">
+            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-left leading-snug">{ACCEPTED_AWARD_STATUS}</span>
+          </span>
+        );
+      case APPROVED_REPRESENTATIVE_AND_ACCOMPANYING:
+      case APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY:
         return (
           <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 max-w-xs">
             <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             <span className="text-left leading-snug">
-              {APPROVED_PARTICIPANT_AND_ACCOMPANYING}
+              {APPROVED_REPRESENTATIVE_AND_ACCOMPANYING}
             </span>
           </span>
         );

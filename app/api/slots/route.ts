@@ -68,7 +68,7 @@ async function getUsedSlots(confcode: string | null): Promise<number> {
     }
 
     query = query.or(
-      `status.is.null,status.eq.PENDING,status.in.(APPROVED,"APPROVED PARTICIPANT AND ACCOMPANYING")`
+      `status.is.null,status.eq.PENDING,status.eq.ACCEPTED,status.in.(APPROVED,"APPROVED PARTICIPANT AND ACCOMPANYING","APPROVED REPRESENTATIVE AND ACCOMPANYING")`
     );
     query = query.range(from, from + PAGE_SIZE - 1);
 

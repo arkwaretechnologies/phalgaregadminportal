@@ -22,8 +22,10 @@ export interface Registration {
   status:
     | 'PENDING'
     | 'APPROVED'
+    | 'ACCEPTED'
     | 'APPROVED REPRESENTATIVE ONLY'
     | 'APPROVED PARTICIPANT AND ACCOMPANYING'
+    | 'APPROVED REPRESENTATIVE AND ACCOMPANYING'
     | 'REJECTED'
     | null;
   remarks: string | null;
@@ -83,7 +85,7 @@ export interface Conference {
   closed_conference: string | null;
   /** When 'Y', LGU/Province are not used for this conference (ANC flow). */
   is_anc: string | null;
-  /** When 'Y', approved registrations use status APPROVED PARTICIPANT AND ACCOMPANYING. */
+  /** When 'Y', award approval uses ACCEPTED (rep only) or APPROVED REPRESENTATIVE AND ACCOMPANYING. */
   is_award: string | null;
   /** `numeric` in DB (per-participant fee). PostgREST often serializes `numeric` as a JSON string. */
   reg_fee: number | string | null;

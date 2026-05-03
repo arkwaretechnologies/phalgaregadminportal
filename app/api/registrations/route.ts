@@ -5,8 +5,11 @@ import { requireAuth } from '@/lib/auth';
 import { Registration } from '@/types';
 import { sendStatusUpdateEmail } from '@/lib/email';
 import {
-  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
   APPROVED_STATUS_VALUES,
+  countAwardAccompanyingOnly,
 } from '@/lib/registration-status';
 
 // Force dynamic rendering - this route uses Supabase
@@ -275,6 +278,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
+    let accompanyingCount = 0;
+    if (existingRegs.regid) {
+      const { data: regdRows } = await supabase
+        .from('regd')
+        .select('firstname')
+        .eq('regid', existingRegs.regid as string);
+      accompanyingCount = countAwardAccompanyingOnly(regdRows ?? []);
+    }
+
     let storedStatus = statusUpper;
     if (statusUpper === 'APPROVED' && existingRegs.confcode) {
       const { data: confForAward } = await supabase
@@ -284,7 +296,10 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       const isAward = String(confForAward?.is_award ?? '').toUpperCase() === 'Y';
       if (isAward) {
-        storedStatus = APPROVED_PARTICIPANT_AND_ACCOMPANYING;
+        storedStatus =
+          accompanyingCount === 0
+            ? ACCEPTED_AWARD_STATUS
+            : APPROVED_REPRESENTATIVE_AND_ACCOMPANYING;
       }
     }
 
@@ -296,7 +311,9 @@ export async function POST(request: NextRequest) {
 
     // If approving, generate batch number based on conference (per-confcode sequence)
     if (statusUpper === 'APPROVED') {
-      if (!existingRegs.batchnum) {
+      if (storedStatus === ACCEPTED_AWARD_STATUS) {
+        updateData.batchnum = null;
+      } else if (!existingRegs.batchnum) {
         if (existingRegs.confcode) {
           updateData._needsBatchNum = true;
           updateData._confcode = existingRegs.confcode;
@@ -390,6 +407,19 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.warn('Failed to update regd rows with batchnum:', err);
       }
+    } else if (
+      statusUpper === 'APPROVED' &&
+      storedStatus === ACCEPTED_AWARD_STATUS &&
+      existingRegs.regid
+    ) {
+      try {
+        await supabase
+          .from('regd')
+          .update({ batchnum: null })
+          .eq('regid', existingRegs.regid);
+      } catch (err) {
+        console.warn('Failed to clear batchnum from regd rows (ACCEPTED):', err);
+      }
     } else if (statusUpper === 'REJECTED' && existingRegs.regid) {
       try {
         await supabase
@@ -436,8 +466,14 @@ export async function POST(request: NextRequest) {
 
     let conferenceContactNumbers: string[] | null = null;
     let participantCountForEmail: number | null = null;
+    const awardEmailStatuses = new Set<string>([
+      APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+      ACCEPTED_AWARD_STATUS,
+      APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+    ]);
     if (
-      updatedRegistration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING &&
+      updatedRegistration.status &&
+      awardEmailStatuses.has(String(updatedRegistration.status).trim()) &&
       updatedRegistration.confcode &&
       updatedRegistration.regid
     ) {
@@ -455,15 +491,13 @@ export async function POST(request: NextRequest) {
         console.warn('[API] Failed to fetch contacts for award confirmation email:', err);
       }
       try {
-        const { count, error: cntErr } = await supabase
+        const { data: regdForEmail } = await supabase
           .from('regd')
-          .select('*', { count: 'exact', head: true })
+          .select('firstname')
           .eq('regid', updatedRegistration.regid);
-        if (!cntErr && count != null) {
-          participantCountForEmail = count;
-        }
+        participantCountForEmail = countAwardAccompanyingOnly(regdForEmail ?? []);
       } catch (err) {
-        console.warn('[API] Failed to count participants for award confirmation email:', err);
+        console.warn('[API] Failed to count accompanying for award confirmation email:', err);
       }
     }
 

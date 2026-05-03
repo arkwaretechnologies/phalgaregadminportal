@@ -8,11 +8,15 @@ import PaymentProofViewer from './PaymentProofViewer';
 import LoadingSpinner from './LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
 import {
-  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
   APPROVED_REPRESENTATIVE_ONLY,
   conferenceIsAward,
+  countAwardAccompanyingOnly,
   isApprovedStatus,
   isAwardRepresentativePhaseDbStatus,
+  registrationDetailParticipantsSectionTitle,
 } from '@/lib/registration-status';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
@@ -153,14 +157,24 @@ export default function RegistrationDetailModal({
             CONFIRMED{batchnum ? ` Batch ${batchnum}` : ''}
           </span>
         );
-      case APPROVED_PARTICIPANT_AND_ACCOMPANYING:
+      case ACCEPTED_AWARD_STATUS:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 max-w-lg">
+            <svg className="w-4 h-4 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-left leading-snug">{ACCEPTED_AWARD_STATUS}</span>
+          </span>
+        );
+      case APPROVED_REPRESENTATIVE_AND_ACCOMPANYING:
+      case APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY:
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 max-w-lg">
             <svg className="w-4 h-4 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             <span className="text-left leading-snug">
-              {APPROVED_PARTICIPANT_AND_ACCOMPANYING}
+              {APPROVED_REPRESENTATIVE_AND_ACCOMPANYING}
             </span>
           </span>
         );
@@ -291,8 +305,14 @@ export default function RegistrationDetailModal({
   };
 
   const registrationFeePerParticipant = resolvedRegistrationFee(currentRegistration.reg_fee);
-  const participantCount = currentRegistration.regd?.length ?? 0;
-  const expectedTotalPayment = participantCount * registrationFeePerParticipant;
+  const awardAccompanyingCount = countAwardAccompanyingOnly(currentRegistration.regd);
+  const billableParticipantCount = conferenceIsAward(currentRegistration.is_award)
+    ? awardAccompanyingCount
+    : currentRegistration.regd?.length ?? 0;
+  const expectedTotalPayment = billableParticipantCount * registrationFeePerParticipant;
+  const participantSectionCount = conferenceIsAward(currentRegistration.is_award)
+    ? awardAccompanyingCount
+    : currentRegistration.regd?.length ?? 0;
   const isAnc = conferenceIsAnc(currentRegistration.is_anc);
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
@@ -320,10 +340,18 @@ export default function RegistrationDetailModal({
               <p className="text-sm text-gray-600 mt-1 break-words">
                 Registration ID: {currentRegistration.regid}
               </p>
-              {participantCount > 0 && (
+              {(currentRegistration.regd?.length ?? 0) > 0 && (
                 <p className="text-sm font-medium text-gray-900 mt-2">
                   Expected total payment: ₱{expectedTotalPayment.toLocaleString('en-PH')}
-                  <span className="text-gray-500 font-normal"> ({participantCount} × ₱{registrationFeePerParticipant.toLocaleString('en-PH')})</span>
+                  <span className="text-gray-500 font-normal">
+                    {' '}
+                    ({billableParticipantCount} × ₱{registrationFeePerParticipant.toLocaleString('en-PH')}
+                    {conferenceIsAward(currentRegistration.is_award) &&
+                    (currentRegistration.regd?.length ?? 0) > billableParticipantCount
+                      ? '; representative excluded'
+                      : ''}
+                    )
+                  </span>
                 </p>
               )}
             </div>
@@ -453,7 +481,7 @@ export default function RegistrationDetailModal({
             {currentRegistration.regd && currentRegistration.regd.length > 0 && (
               <div className={`bg-gray-50 rounded-lg ${isAnc ? 'p-3 sm:p-4' : 'p-4 sm:p-6'}`}>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Participants ({currentRegistration.regd.length})
+                  {`${registrationDetailParticipantsSectionTitle(currentRegistration.is_award)} (${participantSectionCount})`}
                 </h3>
                 <div className="overflow-x-auto w-full min-w-0">
                   <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg">
@@ -497,18 +525,20 @@ export default function RegistrationDetailModal({
                               Provincial League
                             </th>
                           </>
-                        ) : (
+                        ) : !conferenceIsAward(currentRegistration.is_award) ? (
                           <th
                             className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                           >
                             Barangay
                           </th>
+                        ) : null}
+                        {!conferenceIsAward(currentRegistration.is_award) && (
+                          <th
+                            className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                          >
+                            T-Shirt Size
+                          </th>
                         )}
-                        <th
-                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
-                        >
-                          T-Shirt Size
-                        </th>
                         {!isApprovedStatus(currentRegistration.status) && (
                           <th
                             className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
@@ -547,25 +577,27 @@ export default function RegistrationDetailModal({
                                 {currentRegistration.province || 'N/A'}
                               </td>
                             </>
-                          ) : (
+                          ) : !conferenceIsAward(currentRegistration.is_award) ? (
                             <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                               {item.brgy || 'N/A'}
                             </td>
+                          ) : null}
+                          {!conferenceIsAward(currentRegistration.is_award) && (
+                            <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                              <span className="inline-flex items-center gap-1.5">
+                                {item.tshirtsize || 'N/A'}
+                                <button
+                                  onClick={() => openTshirtEdit(item)}
+                                  className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                  title="Edit T-shirt size"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              </span>
+                            </td>
                           )}
-                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
-                            <span className="inline-flex items-center gap-1.5">
-                              {item.tshirtsize || 'N/A'}
-                              <button
-                                onClick={() => openTshirtEdit(item)}
-                                className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                                title="Edit T-shirt size"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                            </span>
-                          </td>
                           {!isApprovedStatus(currentRegistration.status) && (
                             <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                               <button
@@ -623,7 +655,8 @@ export default function RegistrationDetailModal({
               </p>
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="text-sm font-medium text-gray-900">
-                  {participantToDelete.lastname}, {participantToDelete.firstname} {participantToDelete.middleinit || ''}
+                  {participantToDelete.lastname}, {participantToDelete.firstname}{' '}
+                  {participantToDelete.middleinit || ''}
                 </p>
                 <p className="text-sm text-gray-500">
                   {participantToDelete.designation || 'No designation'}
@@ -684,7 +717,8 @@ export default function RegistrationDetailModal({
               <p className="text-sm text-gray-600 mb-2">Participant</p>
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="text-sm font-medium text-gray-900">
-                  {participantToEditTshirt.lastname}, {participantToEditTshirt.firstname} {participantToEditTshirt.middleinit || ''}
+                  {participantToEditTshirt.lastname}, {participantToEditTshirt.firstname}{' '}
+                  {participantToEditTshirt.middleinit || ''}
                 </p>
               </div>
             </div>

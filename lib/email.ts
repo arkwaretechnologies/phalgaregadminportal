@@ -1,6 +1,9 @@
 import { Resend } from 'resend';
 import { Registration } from '@/types';
-import { APPROVED_PARTICIPANT_AND_ACCOMPANYING } from '@/lib/registration-status';
+import {
+  displayAwardFinalApprovalLabel,
+  isAwardConfirmationEmailStatus,
+} from '@/lib/registration-status';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@phalga.org';
@@ -279,7 +282,7 @@ function getAwardApprovalPortalStyleTemplate(data: StatusUpdateEmailData): strin
                     Status:
                   </td>
                   <td style="padding: 10px; color: #065f46; font-size: 13px; font-weight: 600; line-height: 1.35;">
-                    ${escapeHtml(APPROVED_PARTICIPANT_AND_ACCOMPANYING)}
+                    ${escapeHtml(displayAwardFinalApprovalLabel(registration.status))}
                   </td>
                 </tr>
               </table>
@@ -316,10 +319,7 @@ function getAwardApprovalPortalStyleTemplate(data: StatusUpdateEmailData): strin
 function getEmailTemplate(data: StatusUpdateEmailData): string {
   const { registration, status, remarks, conferenceName, conferenceDomain, conferenceVenue, conferenceDateFrom, conferenceDateTo, conferenceIsAnc } = data;
 
-  if (
-    status === 'APPROVED' &&
-    registration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING
-  ) {
+  if (status === 'APPROVED' && isAwardConfirmationEmailStatus(registration.status)) {
     return getAwardApprovalPortalStyleTemplate(data);
   }
   const statusColor = getStatusColor(status);
@@ -531,8 +531,7 @@ export async function sendStatusUpdateEmail(data: StatusUpdateEmailData): Promis
 
   try {
     const isAwardConfirmationEmail =
-      data.status === 'APPROVED' &&
-      registration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING;
+      data.status === 'APPROVED' && isAwardConfirmationEmailStatus(registration.status);
     const conferenceSubjectTitle =
       data.conferenceName || registration.confcode || registration.regid;
     const subject =
