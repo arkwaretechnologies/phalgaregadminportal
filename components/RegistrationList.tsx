@@ -2,10 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Registration, RegistrationDetail } from '@/types';
-import {
-  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
-  isApprovedStatus,
-} from '@/lib/registration-status';
 import ApprovalModal from './ApprovalModal';
 import RegistrationDetailModal from './RegistrationDetailModal';
 import CountdownTimer from './CountdownTimer';
@@ -161,21 +157,10 @@ export default function RegistrationList({
       case 'APPROVED':
         return (
           <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             CONFIRMED{batchnum ? ` Batch ${batchnum}` : ''}
-          </span>
-        );
-      case APPROVED_PARTICIPANT_AND_ACCOMPANYING:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 max-w-xs">
-            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="text-left leading-snug">
-              {APPROVED_PARTICIPANT_AND_ACCOMPANYING}
-            </span>
           </span>
         );
       case 'REJECTED':
@@ -503,7 +488,7 @@ export default function RegistrationList({
                         'View details'
                       )}
                     </button>
-                    {!isApprovedStatus(registration.status) &&
+                    {registration.status !== 'APPROVED' &&
                       registration.status !== 'REJECTED' && (
                         <button
                           onClick={() => handleApproveReject(registration)}
@@ -668,7 +653,7 @@ export default function RegistrationList({
                               </>
                             )}
                           </button>
-                          {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
+                          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
                             <button
                               onClick={() => handleApproveReject(registration)}
                               className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 border border-indigo-600 rounded-md hover:bg-indigo-700 hover:border-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 shadow-sm hover:shadow"

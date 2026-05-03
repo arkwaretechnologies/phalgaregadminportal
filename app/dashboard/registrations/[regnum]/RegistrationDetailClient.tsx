@@ -6,10 +6,6 @@ import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
-import {
-  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
-  isApprovedStatus,
-} from '@/lib/registration-status';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -60,21 +56,10 @@ export default function RegistrationDetailClient({
       case 'APPROVED':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-            <svg className="w-4 h-4 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             CONFIRMED{batchnum ? ` Batch ${batchnum}` : ''}
-          </span>
-        );
-      case APPROVED_PARTICIPANT_AND_ACCOMPANYING:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 max-w-lg">
-            <svg className="w-4 h-4 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="text-left leading-snug">
-              {APPROVED_PARTICIPANT_AND_ACCOMPANYING}
-            </span>
           </span>
         );
       case 'REJECTED':
@@ -328,7 +313,7 @@ export default function RegistrationDetailClient({
             </div>
           )}
 
-          {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
+          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
             <div className="mt-6">
               <button
                 onClick={() => setShowModal(true)}
@@ -399,7 +384,7 @@ export default function RegistrationDetailClient({
                     >
                       T-Shirt Size
                     </th>
-                    {!isApprovedStatus(registration.status) && (
+                    {registration.status !== 'APPROVED' && (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                       >
@@ -456,7 +441,7 @@ export default function RegistrationDetailClient({
                           </button>
                         </span>
                       </td>
-                      {!isApprovedStatus(registration.status) && (
+                      {registration.status !== 'APPROVED' && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
                             onClick={() => setParticipantToDelete(item)}

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import archiver from 'archiver';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
     const { data: registrations, error: regError } = await supabase
       .from('regh')
       .select('regid, confcode, batchnum')
-      .in('status', [...APPROVED_STATUS_VALUES])
+      .eq('status', 'APPROVED')
       .eq('confcode', confcode)
       .not('batchnum', 'is', null)
       .order('batchnum', { ascending: true });

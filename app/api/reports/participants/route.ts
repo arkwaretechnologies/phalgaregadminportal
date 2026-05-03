@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -93,7 +92,7 @@ export async function GET(request: NextRequest) {
       supabaseServer,
       'regh',
       (query) => {
-        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false });
+        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }

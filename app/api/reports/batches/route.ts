@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -52,7 +51,7 @@ export async function GET(request: NextRequest) {
       'regh',
       (query) => {
         query = query
-          .in('status', [...APPROVED_STATUS_VALUES])
+          .eq('status', 'APPROVED')
           .not('batchnum', 'is', null)
           .order('batchnum', { ascending: true });
         if (confcode) {

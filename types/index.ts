@@ -19,12 +19,7 @@ export interface Registration {
   contactnum: string | null;
   email: string | null;
   regdate: string | null;
-  status:
-    | 'PENDING'
-    | 'APPROVED'
-    | 'APPROVED PARTICIPANT AND ACCOMPANYING'
-    | 'REJECTED'
-    | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   remarks: string | null;
   payment_proof_url?: string | null; // Payment proof file URL or path in storage
   participant_count?: number; // Derived: number of regD rows for this batchnum
@@ -80,8 +75,6 @@ export interface Conference {
   closed_conference: string | null;
   /** When 'Y', LGU/Province are not used for this conference (ANC flow). */
   is_anc: string | null;
-  /** When 'Y', approved registrations use status APPROVED PARTICIPANT AND ACCOMPANYING. */
-  is_award: string | null;
   /** `numeric` in DB (per-participant fee). PostgREST often serializes `numeric` as a JSON string. */
   reg_fee: number | string | null;
 }

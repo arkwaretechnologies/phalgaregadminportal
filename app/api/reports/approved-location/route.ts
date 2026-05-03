@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -67,7 +66,7 @@ export async function GET(request: NextRequest) {
         'regh',
         'regid, confcode',
         (query) => {
-          query = query.in('status', [...APPROVED_STATUS_VALUES]).not('regid', 'is', null);
+          query = query.eq('status', 'APPROVED').not('regid', 'is', null);
           if (confcode) {
             query = query.eq('confcode', confcode);
           }
@@ -165,7 +164,7 @@ export async function GET(request: NextRequest) {
       'confcode, province, lgu',
       (query) => {
         query = query
-          .in('status', [...APPROVED_STATUS_VALUES])
+          .eq('status', 'APPROVED')
           .order('confcode', { ascending: true })
           .order('province', { ascending: true })
           .order('lgu', { ascending: true });

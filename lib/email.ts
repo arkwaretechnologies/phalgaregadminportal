@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
 import { Registration } from '@/types';
-import { APPROVED_PARTICIPANT_AND_ACCOMPANYING } from '@/lib/registration-status';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@phalga.org';
@@ -22,10 +21,6 @@ interface StatusUpdateEmailData {
   conferenceDateTo?: string | null;
   /** When 'Y', hide Province/LGU in emails (ANC flow). */
   conferenceIsAnc?: string | null;
-  /** Public registration portal contact numbers (same as PhalgaOnlineRegistration confirmation email). */
-  conferenceContactNumbers?: string[] | null;
-  /** Participant count for award-style template details table. */
-  participantCount?: number | null;
 }
 
 function formatDate(date: string | null): string {
@@ -93,235 +88,8 @@ function escapeHtml(text: string | null): string {
     .replace(/'/g, '&#039;');
 }
 
-function formatContactNumbersList(contacts: string[]): string {
-  if (contacts.length === 0) return '';
-  if (contacts.length === 1) return contacts[0];
-  if (contacts.length === 2) return `${contacts[0]} and ${contacts[1]}`;
-  const last = contacts[contacts.length - 1];
-  const rest = contacts.slice(0, -1);
-  return `${rest.join(', ')}, and ${last}`;
-}
-
-/**
- * Award conference approval email — matches the layout of PhalgaOnlineRegistration’s
- * registration confirmation email (gradient header, side logos, details table) but
- * states that registration is confirmed; no batch number or QR block.
- */
-function getAwardApprovalPortalStyleTemplate(data: StatusUpdateEmailData): string {
-  const {
-    registration,
-    conferenceName,
-    conferenceDomain,
-    conferenceVenue,
-    conferenceDateFrom,
-    conferenceDateTo,
-    conferenceIsAnc,
-    conferenceContactNumbers,
-    participantCount,
-  } = data;
-
-  const greeting = escapeHtml(registration.contactperson || 'Participant');
-  const conferenceDisplayName =
-    escapeHtml(conferenceName || registration.confcode || 'Conference');
-  const isAnc = String(conferenceIsAnc ?? '').toUpperCase() === 'Y';
-
-  let portalBaseUrl = registrationPortalUrl;
-  if (conferenceDomain) {
-    if (conferenceDomain.startsWith('http://') || conferenceDomain.startsWith('https://')) {
-      portalBaseUrl = conferenceDomain.replace(/\/$/, '');
-    } else {
-      portalBaseUrl = `https://${conferenceDomain.replace(/\/$/, '')}`;
-    }
-  }
-
-  const viewUrl = `${portalBaseUrl}/view/${encodeURIComponent(registration.regid)}${
-    registration.confcode ? `?confcode=${encodeURIComponent(registration.confcode)}` : ''
-  }`;
-
-  const leftImageUrl = `${appUrl}/left.png`;
-  const rightImageUrl = `${appUrl}/right.png`;
-
-  const formattedDateRange = formatDateRange(
-    conferenceDateFrom ?? null,
-    conferenceDateTo ?? null
-  );
-  const venueLine = conferenceVenue ? escapeHtml(conferenceVenue) : '';
-
-  const provinceAndLguRows = isAnc
-    ? ''
-    : `
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">
-                    Province:
-                  </td>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${escapeHtml(registration.province || 'N/A')}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">
-                    LGU:
-                  </td>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${escapeHtml(registration.lgu || 'N/A')}
-                  </td>
-                </tr>`;
-
-  const contacts = conferenceContactNumbers?.filter(Boolean) ?? [];
-  const contactsSentence =
-    contacts.length > 0
-      ? `<p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">
-                If you have any questions or need to make changes to your registration, please contact the registration team using this number${
-                  contacts.length > 1 ? 's' : ''
-                } <strong>${escapeHtml(formatContactNumbersList(contacts))}</strong>.
-              </p>`
-      : `<p style="margin: 20px 0 0 0; color: #666666; font-size: 14px; line-height: 1.6;">
-                If you have any questions, please contact the registration team through the official channels announced for this event.
-              </p>`;
-
-  const accompanyingDisplay =
-    participantCount != null && Number.isFinite(Number(participantCount))
-      ? Math.max(0, Math.floor(Number(participantCount)))
-      : 0;
-
-  const accompanyingRow = `
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">
-                    Number of Accompanying:
-                  </td>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${accompanyingDisplay}
-                  </td>
-                </tr>`;
-
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registration Confirmed</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-  <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f4f4f4;">
-    <tr>
-      <td style="padding: 20px 0;">
-        <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <tr>
-            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-              <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="width: 30%; vertical-align: middle; text-align: left; padding: 0 10px;">
-                    <img src="${leftImageUrl}" alt="PHALGA" width="120" style="max-width: 120px; width: 120px; height: auto; display: block; border: 0;" />
-                  </td>
-                  <td style="width: 40%; vertical-align: middle; text-align: center; padding: 0 10px;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: bold; line-height: 1.2;">
-                      ${conferenceDisplayName}
-                    </h1>
-                    ${
-                      formattedDateRange && formattedDateRange !== 'TBA'
-                        ? `<p style="margin: 8px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.9;">${escapeHtml(formattedDateRange)}</p>`
-                        : ''
-                    }
-                    ${
-                      venueLine
-                        ? `<p style="margin: 4px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.9;">${venueLine}</p>`
-                        : ''
-                    }
-                    <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px;">
-                      Registration Confirmed
-                    </p>
-                  </td>
-                  <td style="width: 30%; vertical-align: middle; text-align: right; padding: 0 10px;">
-                    <img src="${rightImageUrl}" alt="" width="120" style="max-width: 120px; width: 120px; height: auto; display: block; margin-left: auto; border: 0;" />
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 30px;">
-              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                Dear ${greeting},
-              </p>
-              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                Your registration for <strong>${conferenceDisplayName}</strong> has been <strong style="color: #047857;">confirmed</strong>. Thank you for registering.
-              </p>
-              <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                <p style="margin: 0 0 5px 0; color: #666666; font-size: 14px; font-weight: bold;">
-                  REGISTRATION ID
-                </p>
-                <p style="margin: 0; color: #333333; font-size: 24px; font-weight: bold; letter-spacing: 2px;">
-                  ${escapeHtml(registration.regid)}
-                </p>
-              </div>
-              <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px; width: 40%;">
-                    Registration Date &amp; Time:
-                  </td>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${formatDate(registration.regdate)}
-                  </td>
-                </tr>
-                ${provinceAndLguRows}
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">
-                    Contact Number:
-                  </td>
-                  <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${escapeHtml(registration.contactnum || 'N/A')}
-                  </td>
-                </tr>
-                ${accompanyingRow}
-                <tr>
-                  <td style="padding: 10px; color: #666666; font-size: 14px;">
-                    Status:
-                  </td>
-                  <td style="padding: 10px; color: #065f46; font-size: 13px; font-weight: 600; line-height: 1.35;">
-                    ${escapeHtml(APPROVED_PARTICIPANT_AND_ACCOMPANYING)}
-                  </td>
-                </tr>
-              </table>
-              <p style="margin: 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                Use your Registration ID to view your registration details on the portal.
-              </p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${viewUrl}" style="display: inline-block; background-color: #667eea; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                  View Registration Details
-                </a>
-              </div>
-              ${contactsSentence}
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e0e0e0;">
-              <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">
-                This is an automated message. Please do not reply to this email.
-              </p>
-              <p style="margin: 0; color: #999999; font-size: 12px;">
-                © ${new Date().getFullYear()} PHALGA. All rights reserved.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim();
-}
-
 function getEmailTemplate(data: StatusUpdateEmailData): string {
   const { registration, status, remarks, conferenceName, conferenceDomain, conferenceVenue, conferenceDateFrom, conferenceDateTo, conferenceIsAnc } = data;
-
-  if (
-    status === 'APPROVED' &&
-    registration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING
-  ) {
-    return getAwardApprovalPortalStyleTemplate(data);
-  }
   const statusColor = getStatusColor(status);
   const statusBadgeStyle = getStatusBadgeColor(status);
   const greeting = registration.contactperson || 'Dear Participant';
@@ -530,17 +298,9 @@ export async function sendStatusUpdateEmail(data: StatusUpdateEmailData): Promis
   }
 
   try {
-    const isAwardConfirmationEmail =
-      data.status === 'APPROVED' &&
-      registration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING;
-    const conferenceSubjectTitle =
-      data.conferenceName || registration.confcode || registration.regid;
-    const subject =
-      data.status === 'REJECTED'
-        ? `Registration Unsuccessful - ${registration.regid}`
-        : isAwardConfirmationEmail
-          ? `Registration Confirmed - ${conferenceSubjectTitle}`
-          : `Registration Confirmed - ${registration.regid}`;
+    const subject = data.status === 'APPROVED' 
+      ? `Registration Confirmed - ${registration.regid}`
+      : `Registration Unsuccessful - ${registration.regid}`;
 
     console.log('[EMAIL] Email subject:', subject);
     console.log('[EMAIL] Sending to:', registration.email);
