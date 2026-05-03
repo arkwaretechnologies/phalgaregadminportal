@@ -8,7 +8,10 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
 import {
   APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  APPROVED_REPRESENTATIVE_ONLY,
+  conferenceIsAward,
   isApprovedStatus,
+  isAwardRepresentativePhaseDbStatus,
 } from '@/lib/registration-status';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
@@ -56,6 +59,13 @@ export default function RegistrationDetailClient({
   };
 
   const getStatusBadge = (status: string | null, batchnum?: number | null) => {
+    if (conferenceIsAward(registration.is_award) && isAwardRepresentativePhaseDbStatus(status)) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-amber-100 text-amber-900 max-w-lg">
+          <span className="text-left leading-snug">{APPROVED_REPRESENTATIVE_ONLY}</span>
+        </span>
+      );
+    }
     switch (status) {
       case 'APPROVED':
         return (

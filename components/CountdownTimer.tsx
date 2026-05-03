@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { APPROVED_REPRESENTATIVE_ONLY } from '@/lib/registration-status';
 
 interface CountdownTimerProps {
   registrationDate: string | null;
@@ -21,7 +22,11 @@ export default function CountdownTimer({
     // Normalize status to uppercase for comparison
     const normalizedStatus = status?.toUpperCase() || null;
     
-    if (!registrationDate || normalizedStatus !== 'PENDING') {
+    const showDeadline =
+      normalizedStatus === 'PENDING' ||
+      normalizedStatus === APPROVED_REPRESENTATIVE_ONLY;
+
+    if (!registrationDate || !showDeadline) {
       setTimeLeft('--:--:--');
       return;
     }
@@ -60,7 +65,11 @@ export default function CountdownTimer({
   // Normalize status to uppercase for comparison
   const normalizedStatus = status?.toUpperCase() || null;
   
-  if (!registrationDate || normalizedStatus !== 'PENDING') {
+  const showDeadline =
+    normalizedStatus === 'PENDING' ||
+    normalizedStatus === APPROVED_REPRESENTATIVE_ONLY;
+
+  if (!registrationDate || !showDeadline) {
     return <span className="text-sm text-gray-400">-</span>;
   }
 

@@ -92,7 +92,7 @@ export async function attachConferenceIsAnc(
     registration.confcode ?? registration.regd?.[0]?.confcode ?? null;
 
   if (!derivedConfcode) {
-    return { ...registration, is_anc: null, reg_fee: null };
+    return { ...registration, is_anc: null, reg_fee: null, is_award: null };
   }
 
   const confcode = String(derivedConfcode).trim();
@@ -100,11 +100,11 @@ export async function attachConferenceIsAnc(
 
   if (error) {
     console.error('attachConferenceIsAnc: conference fetch failed', error);
-    return { ...registration, is_anc: null, reg_fee: null };
+    return { ...registration, is_anc: null, reg_fee: null, is_award: null };
   }
 
   if (!data) {
-    return { ...registration, is_anc: null, reg_fee: null };
+    return { ...registration, is_anc: null, reg_fee: null, is_award: null };
   }
 
   const row = data;
@@ -114,5 +114,6 @@ export async function attachConferenceIsAnc(
     ...registration,
     is_anc: (row.is_anc as string | null | undefined) ?? null,
     reg_fee,
+    is_award: (row.is_award as string | null | undefined) ?? null,
   };
 }

@@ -22,6 +22,7 @@ export interface Registration {
   status:
     | 'PENDING'
     | 'APPROVED'
+    | 'APPROVED REPRESENTATIVE ONLY'
     | 'APPROVED PARTICIPANT AND ACCOMPANYING'
     | 'REJECTED'
     | null;
@@ -36,6 +37,8 @@ export interface RegistrationDetail extends Registration {
   regd?: RegistrationDetailItem[];
   /** From `conference.is_anc` when loading detail; 'Y' = ANC (header LGU/Province hidden; participant Province/LGU shown, Barangay hidden). */
   is_anc?: string | null;
+  /** From `conference.is_award` when loading detail; 'Y' = award flow (pending UI label vs approval status). */
+  is_award?: string | null;
   /** From `conference.reg_fee` when loading detail; normalized to a number on the server. */
   reg_fee?: number | null;
 }

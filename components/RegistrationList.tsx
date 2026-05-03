@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Registration, RegistrationDetail } from '@/types';
 import {
   APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  APPROVED_REPRESENTATIVE_ONLY,
   isApprovedStatus,
+  isAwardRepresentativePhaseDbStatus,
 } from '@/lib/registration-status';
 import ApprovalModal from './ApprovalModal';
 import RegistrationDetailModal from './RegistrationDetailModal';
@@ -18,6 +20,8 @@ interface RegistrationListProps {
   initialSearch?: string;
   /** When true, Province and LGU columns are hidden (conference `is_anc` = Y). */
   hideProvinceLgu?: boolean;
+  /** When true, pending rows show label APPROVED REPRESENTATIVE ONLY (award conferences only). */
+  conferenceIsAward?: boolean;
 }
 
 export default function RegistrationList({
@@ -26,6 +30,7 @@ export default function RegistrationList({
   confcode,
   initialSearch = '',
   hideProvinceLgu = false,
+  conferenceIsAward = false,
 }: RegistrationListProps) {
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
@@ -157,6 +162,13 @@ export default function RegistrationList({
   };
 
   const getStatusBadge = (status: string | null, batchnum?: number | null) => {
+    if (conferenceIsAward && isAwardRepresentativePhaseDbStatus(status)) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-900 max-w-xs">
+          <span className="text-left leading-snug">{APPROVED_REPRESENTATIVE_ONLY}</span>
+        </span>
+      );
+    }
     switch (status) {
       case 'APPROVED':
         return (
