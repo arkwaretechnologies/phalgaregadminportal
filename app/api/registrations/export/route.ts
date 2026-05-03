@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       'regh',
       (query) => {
-        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false }).order('regid', { ascending: true });
+        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false }).order('regid', { ascending: true });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }

@@ -4,6 +4,10 @@ import { getParticipantCountsByRegids } from '@/lib/regd-participant-counts';
 import { requireAuth } from '@/lib/auth';
 import { Registration } from '@/types';
 import { sendStatusUpdateEmail } from '@/lib/email';
+import {
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING,
+  APPROVED_STATUS_VALUES,
+} from '@/lib/registration-status';
 
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
@@ -56,7 +60,12 @@ export async function GET(request: NextRequest) {
 
     // Filter by status (convert to uppercase for consistency)
     if (status && status !== 'all') {
-      query = query.eq('status', status.toUpperCase());
+      const su = status.toUpperCase();
+      if (su === 'APPROVED') {
+        query = query.in('status', [...APPROVED_STATUS_VALUES]);
+      } else {
+        query = query.eq('status', su);
+      }
     }
 
     // Search functionality - search in regh fields
@@ -142,7 +151,12 @@ export async function GET(request: NextRequest) {
 
       // Apply status filter if specified
       if (status && status !== 'all') {
-        additionalQuery = additionalQuery.eq('status', status.toUpperCase());
+        const su = status.toUpperCase();
+        if (su === 'APPROVED') {
+          additionalQuery = additionalQuery.in('status', [...APPROVED_STATUS_VALUES]);
+        } else {
+          additionalQuery = additionalQuery.eq('status', su);
+        }
       }
 
       const { data: additionalRegs, error: additionalError } = await additionalQuery;
@@ -261,9 +275,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
+    let storedStatus = statusUpper;
+    if (statusUpper === 'APPROVED' && existingRegs.confcode) {
+      const { data: confForAward } = await supabase
+        .from('conference')
+        .select('is_award')
+        .eq('confcode', existingRegs.confcode)
+        .maybeSingle();
+      const isAward = String(confForAward?.is_award ?? '').toUpperCase() === 'Y';
+      if (isAward) {
+        storedStatus = APPROVED_PARTICIPANT_AND_ACCOMPANYING;
+      }
+    }
+
     // Prepare update payload
     const updateData: any = {
-      status: statusUpper,
+      status: storedStatus,
       remarks: remarks || null,
     };
 
@@ -404,9 +431,45 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    const emailStatus: 'APPROVED' | 'REJECTED' =
+      statusUpper === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+
+    let conferenceContactNumbers: string[] | null = null;
+    let participantCountForEmail: number | null = null;
+    if (
+      updatedRegistration.status === APPROVED_PARTICIPANT_AND_ACCOMPANYING &&
+      updatedRegistration.confcode &&
+      updatedRegistration.regid
+    ) {
+      try {
+        const { data: contactRows } = await supabase
+          .from('contacts')
+          .select('contact_no')
+          .eq('confcode', updatedRegistration.confcode)
+          .order('id', { ascending: true });
+        const nums =
+          contactRows?.map((c: { contact_no: string | null }) => c.contact_no).filter(Boolean) ??
+          [];
+        conferenceContactNumbers = nums.length ? (nums as string[]) : null;
+      } catch (err) {
+        console.warn('[API] Failed to fetch contacts for award confirmation email:', err);
+      }
+      try {
+        const { count, error: cntErr } = await supabase
+          .from('regd')
+          .select('*', { count: 'exact', head: true })
+          .eq('regid', updatedRegistration.regid);
+        if (!cntErr && count != null) {
+          participantCountForEmail = count;
+        }
+      } catch (err) {
+        console.warn('[API] Failed to count participants for award confirmation email:', err);
+      }
+    }
+
     sendStatusUpdateEmail({
       registration: updatedRegistration as Registration,
-      status: statusUpper as 'APPROVED' | 'REJECTED',
+      status: emailStatus,
       remarks: remarks || null,
       conferenceName: conferenceInfo?.name || null,
       conferenceDomain: conferenceInfo?.domain || null,
@@ -414,6 +477,8 @@ export async function POST(request: NextRequest) {
       conferenceDateFrom: conferenceInfo?.date_from || null,
       conferenceDateTo: conferenceInfo?.date_to || null,
       conferenceIsAnc: conferenceInfo?.is_anc || null,
+      conferenceContactNumbers,
+      participantCount: participantCountForEmail,
     })
       .then((success) => {
         if (success) {

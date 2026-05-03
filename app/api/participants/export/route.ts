@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
+import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 /** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
 const REGID_IN_CHUNK_SIZE = 120;
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
       supabaseServer,
       'regh',
       (query) => {
-        query = query.eq('status', 'APPROVED').order('regdate', { ascending: false }).order('regid', { ascending: true });
+        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false }).order('regid', { ascending: true });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }
