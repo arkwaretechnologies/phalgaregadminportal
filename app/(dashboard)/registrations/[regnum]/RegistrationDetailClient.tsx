@@ -6,6 +6,17 @@ import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
+import {
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+  APPROVED_REPRESENTATIVE_ONLY,
+  conferenceIsAward,
+  countAwardAccompanyingOnly,
+  isApprovedStatus,
+  isAwardRepresentativePhaseDbStatus,
+  registrationDetailParticipantsSectionTitle,
+} from '@/lib/registration-status';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -23,6 +34,13 @@ export default function RegistrationDetailClient({
   registration,
 }: RegistrationDetailClientProps) {
   const registrationFeePerParticipant = resolvedRegistrationFee(registration.reg_fee);
+  const awardAccompanyingCount = countAwardAccompanyingOnly(registration.regd);
+  const billableParticipantCount = conferenceIsAward(registration.is_award)
+    ? awardAccompanyingCount
+    : registration.regd?.length ?? 0;
+  const participantSectionCount = conferenceIsAward(registration.is_award)
+    ? awardAccompanyingCount
+    : registration.regd?.length ?? 0;
   const isAnc = conferenceIsAnc(registration.is_anc);
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
@@ -51,7 +69,27 @@ export default function RegistrationDetailClient({
   };
 
   const getStatusBadge = (status: string | null) => {
+    if (conferenceIsAward(registration.is_award) && isAwardRepresentativePhaseDbStatus(status)) {
+      return (
+        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-amber-100 text-amber-900 max-w-lg leading-snug inline-block">
+          {APPROVED_REPRESENTATIVE_ONLY}
+        </span>
+      );
+    }
     switch (status) {
+      case ACCEPTED_AWARD_STATUS:
+        return (
+          <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 max-w-lg leading-snug inline-block">
+            {ACCEPTED_AWARD_STATUS}
+          </span>
+        );
+      case APPROVED_REPRESENTATIVE_AND_ACCOMPANYING:
+      case APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY:
+        return (
+          <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 max-w-lg leading-snug inline-block">
+            {APPROVED_REPRESENTATIVE_AND_ACCOMPANYING}
+          </span>
+        );
       case 'APPROVED':
         return (
           <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
@@ -207,8 +245,17 @@ export default function RegistrationDetailClient({
           <p className="text-sm text-gray-600 mt-1">Registration ID: {registration.regid}</p>
           {registration.regd && registration.regd.length > 0 && (
             <p className="text-sm font-medium text-gray-900 mt-2">
-              Expected total payment: ₱{(registration.regd.length * registrationFeePerParticipant).toLocaleString('en-PH')}
-              <span className="text-gray-500 font-normal"> ({registration.regd.length} × ₱{registrationFeePerParticipant.toLocaleString('en-PH')})</span>
+              Expected total payment: ₱
+              {(billableParticipantCount * registrationFeePerParticipant).toLocaleString('en-PH')}
+              <span className="text-gray-500 font-normal">
+                {' '}
+                ({billableParticipantCount} × ₱{registrationFeePerParticipant.toLocaleString('en-PH')}
+                {conferenceIsAward(registration.is_award) &&
+                registration.regd.length > billableParticipantCount
+                  ? '; representative excluded'
+                  : ''}
+                )
+              </span>
             </p>
           )}
         </div>
@@ -281,7 +328,7 @@ export default function RegistrationDetailClient({
             </div>
           )}
 
-          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
+          {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
             <div className="mt-6">
               <button
                 onClick={() => setShowModal(true)}
@@ -296,7 +343,7 @@ export default function RegistrationDetailClient({
         {registration.regd && registration.regd.length > 0 && (
           <div className={`bg-white rounded-lg shadow-md ${isAnc ? 'p-4 sm:p-5' : 'p-6'}`}>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Participants ({registration.regd.length})
+              {`${registrationDetailParticipantsSectionTitle(registration.is_award)} (${participantSectionCount})`}
             </h2>
             <div className="overflow-x-auto w-full min-w-0">
               <table className="min-w-full divide-y divide-gray-200">
@@ -340,19 +387,21 @@ export default function RegistrationDetailClient({
                           Provincial League
                         </th>
                       </>
-                    ) : (
+                    ) : !conferenceIsAward(registration.is_award) ? (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                       >
                         Barangay
                       </th>
+                    ) : null}
+                    {!conferenceIsAward(registration.is_award) && (
+                      <th
+                        className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                      >
+                        T-Shirt Size
+                      </th>
                     )}
-                    <th
-                      className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
-                    >
-                      T-Shirt Size
-                    </th>
-                    {registration.status !== 'APPROVED' && (
+                    {!isApprovedStatus(registration.status) && (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                       >
@@ -390,26 +439,28 @@ export default function RegistrationDetailClient({
                             {registration.province || 'N/A'}
                           </td>
                         </>
-                      ) : (
+                      ) : !conferenceIsAward(registration.is_award) ? (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           {item.brgy || 'N/A'}
                         </td>
+                      ) : null}
+                      {!conferenceIsAward(registration.is_award) && (
+                        <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                          <span className="inline-flex items-center gap-1.5">
+                            {item.tshirtsize || 'N/A'}
+                            <button
+                              onClick={() => openTshirtEdit(item)}
+                              className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                              title="Edit T-shirt size"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          </span>
+                        </td>
                       )}
-                      <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
-                        <span className="inline-flex items-center gap-1.5">
-                          {item.tshirtsize || 'N/A'}
-                          <button
-                            onClick={() => openTshirtEdit(item)}
-                            className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                            title="Edit T-shirt size"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        </span>
-                      </td>
-                      {registration.status !== 'APPROVED' && (
+                      {!isApprovedStatus(registration.status) && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
                             onClick={() => setParticipantToDelete(item)}
@@ -452,7 +503,8 @@ export default function RegistrationDetailClient({
               </p>
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="text-sm font-medium text-gray-900">
-                  {participantToDelete.lastname}, {participantToDelete.firstname} {participantToDelete.middleinit || ''}
+                  {participantToDelete.lastname}, {participantToDelete.firstname}{' '}
+                  {participantToDelete.middleinit || ''}
                 </p>
                 <p className="text-sm text-gray-500">
                   {participantToDelete.designation || 'No designation'}
@@ -513,7 +565,8 @@ export default function RegistrationDetailClient({
               <p className="text-sm text-gray-600 mb-2">Participant</p>
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="text-sm font-medium text-gray-900">
-                  {participantToEditTshirt.lastname}, {participantToEditTshirt.firstname} {participantToEditTshirt.middleinit || ''}
+                  {participantToEditTshirt.lastname}, {participantToEditTshirt.firstname}{' '}
+                  {participantToEditTshirt.middleinit || ''}
                 </p>
               </div>
             </div>

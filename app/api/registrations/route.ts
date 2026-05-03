@@ -4,6 +4,13 @@ import { getParticipantCountsByRegids } from '@/lib/regd-participant-counts';
 import { requireAuth } from '@/lib/auth';
 import { Registration } from '@/types';
 import { sendStatusUpdateEmail } from '@/lib/email';
+import {
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+  APPROVED_STATUS_VALUES,
+  countAwardAccompanyingOnly,
+} from '@/lib/registration-status';
 
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
@@ -56,7 +63,12 @@ export async function GET(request: NextRequest) {
 
     // Filter by status (convert to uppercase for consistency)
     if (status && status !== 'all') {
-      query = query.eq('status', status.toUpperCase());
+      const su = status.toUpperCase();
+      if (su === 'APPROVED') {
+        query = query.in('status', [...APPROVED_STATUS_VALUES]);
+      } else {
+        query = query.eq('status', su);
+      }
     }
 
     // Search functionality - search in regh fields
@@ -142,7 +154,12 @@ export async function GET(request: NextRequest) {
 
       // Apply status filter if specified
       if (status && status !== 'all') {
-        additionalQuery = additionalQuery.eq('status', status.toUpperCase());
+        const su = status.toUpperCase();
+        if (su === 'APPROVED') {
+          additionalQuery = additionalQuery.in('status', [...APPROVED_STATUS_VALUES]);
+        } else {
+          additionalQuery = additionalQuery.eq('status', su);
+        }
       }
 
       const { data: additionalRegs, error: additionalError } = await additionalQuery;
@@ -261,15 +278,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
+    let accompanyingCount = 0;
+    if (existingRegs.regid) {
+      const { data: regdRows } = await supabase
+        .from('regd')
+        .select('firstname')
+        .eq('regid', existingRegs.regid as string);
+      accompanyingCount = countAwardAccompanyingOnly(regdRows ?? []);
+    }
+
+    let storedStatus = statusUpper;
+    if (statusUpper === 'APPROVED' && existingRegs.confcode) {
+      const { data: confForAward } = await supabase
+        .from('conference')
+        .select('is_award')
+        .eq('confcode', existingRegs.confcode)
+        .maybeSingle();
+      const isAward = String(confForAward?.is_award ?? '').toUpperCase() === 'Y';
+      if (isAward) {
+        storedStatus =
+          accompanyingCount === 0
+            ? ACCEPTED_AWARD_STATUS
+            : APPROVED_REPRESENTATIVE_AND_ACCOMPANYING;
+      }
+    }
+
     // Prepare update payload
     const updateData: any = {
-      status: statusUpper,
+      status: storedStatus,
       remarks: remarks || null,
     };
 
     // If approving, generate batch number based on conference (per-confcode sequence)
     if (statusUpper === 'APPROVED') {
-      if (!existingRegs.batchnum) {
+      if (storedStatus === ACCEPTED_AWARD_STATUS) {
+        updateData.batchnum = null;
+      } else if (!existingRegs.batchnum) {
         if (existingRegs.confcode) {
           updateData._needsBatchNum = true;
           updateData._confcode = existingRegs.confcode;
@@ -363,6 +407,19 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.warn('Failed to update regd rows with batchnum:', err);
       }
+    } else if (
+      statusUpper === 'APPROVED' &&
+      storedStatus === ACCEPTED_AWARD_STATUS &&
+      existingRegs.regid
+    ) {
+      try {
+        await supabase
+          .from('regd')
+          .update({ batchnum: null })
+          .eq('regid', existingRegs.regid);
+      } catch (err) {
+        console.warn('Failed to clear batchnum from regd rows (ACCEPTED):', err);
+      }
     } else if (statusUpper === 'REJECTED' && existingRegs.regid) {
       try {
         await supabase
@@ -404,9 +461,49 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    const emailStatus: 'APPROVED' | 'REJECTED' =
+      statusUpper === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+
+    let conferenceContactNumbers: string[] | null = null;
+    let participantCountForEmail: number | null = null;
+    const awardEmailStatuses = new Set<string>([
+      APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+      ACCEPTED_AWARD_STATUS,
+      APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+    ]);
+    if (
+      updatedRegistration.status &&
+      awardEmailStatuses.has(String(updatedRegistration.status).trim()) &&
+      updatedRegistration.confcode &&
+      updatedRegistration.regid
+    ) {
+      try {
+        const { data: contactRows } = await supabase
+          .from('contacts')
+          .select('contact_no')
+          .eq('confcode', updatedRegistration.confcode)
+          .order('id', { ascending: true });
+        const nums =
+          contactRows?.map((c: { contact_no: string | null }) => c.contact_no).filter(Boolean) ??
+          [];
+        conferenceContactNumbers = nums.length ? (nums as string[]) : null;
+      } catch (err) {
+        console.warn('[API] Failed to fetch contacts for award confirmation email:', err);
+      }
+      try {
+        const { data: regdForEmail } = await supabase
+          .from('regd')
+          .select('firstname')
+          .eq('regid', updatedRegistration.regid);
+        participantCountForEmail = countAwardAccompanyingOnly(regdForEmail ?? []);
+      } catch (err) {
+        console.warn('[API] Failed to count accompanying for award confirmation email:', err);
+      }
+    }
+
     sendStatusUpdateEmail({
       registration: updatedRegistration as Registration,
-      status: statusUpper as 'APPROVED' | 'REJECTED',
+      status: emailStatus,
       remarks: remarks || null,
       conferenceName: conferenceInfo?.name || null,
       conferenceDomain: conferenceInfo?.domain || null,
@@ -414,6 +511,8 @@ export async function POST(request: NextRequest) {
       conferenceDateFrom: conferenceInfo?.date_from || null,
       conferenceDateTo: conferenceInfo?.date_to || null,
       conferenceIsAnc: conferenceInfo?.is_anc || null,
+      conferenceContactNumbers,
+      participantCount: participantCountForEmail,
     })
       .then((success) => {
         if (success) {

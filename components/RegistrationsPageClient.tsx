@@ -75,11 +75,13 @@ export default function RegistrationsPageClient({
   initialConfcode,
   initialSearch = '',
   initialHideProvinceLgu = false,
+  initialConferenceIsAward = false,
 }: {
   initialRegistrations: Registration[];
   initialConfcode?: string | null;
   initialSearch?: string;
   initialHideProvinceLgu?: boolean;
+  initialConferenceIsAward?: boolean;
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -137,6 +139,14 @@ export default function RegistrationsPageClient({
     }
     return initialHideProvinceLgu;
   }, [conferences, selectedConfcode, initialHideProvinceLgu]);
+
+  const conferenceIsAward = useMemo(() => {
+    const c = conferences.find((x) => x.confcode === selectedConfcode);
+    if (c) {
+      return String(c.is_award ?? '').toUpperCase() === 'Y';
+    }
+    return initialConferenceIsAward;
+  }, [conferences, selectedConfcode, initialConferenceIsAward]);
 
   const handleConferenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -211,6 +221,7 @@ export default function RegistrationsPageClient({
         confcode={selectedConfcode}
         initialSearch={initialSearch}
         hideProvinceLgu={hideProvinceLgu}
+        conferenceIsAward={conferenceIsAward}
       />
     </div>
   );

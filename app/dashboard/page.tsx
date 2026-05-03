@@ -152,13 +152,15 @@ export default async function DashboardPage({
   const registrations = await getRegistrations(status, search, confcode);
 
   let initialHideProvinceLgu = false;
+  let initialConferenceIsAward = false;
   if (confcode) {
     const { data: confMeta } = await supabase
       .from('conference')
-      .select('is_anc')
+      .select('is_anc, is_award')
       .eq('confcode', confcode)
       .maybeSingle();
     initialHideProvinceLgu = String(confMeta?.is_anc ?? '').toUpperCase() === 'Y';
+    initialConferenceIsAward = String(confMeta?.is_award ?? '').toUpperCase() === 'Y';
   }
 
   return (
@@ -167,6 +169,7 @@ export default async function DashboardPage({
       initialConfcode={confcode}
       initialSearch={search}
       initialHideProvinceLgu={initialHideProvinceLgu}
+      initialConferenceIsAward={initialConferenceIsAward}
     />
   );
 }

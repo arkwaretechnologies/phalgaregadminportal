@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -65,7 +66,11 @@ export async function GET(request: NextRequest) {
           query = query.eq('confcode', confcode);
         }
         if (statusFilter !== 'ALL') {
-          query = query.eq('status', statusFilter);
+          if (statusFilter === 'APPROVED') {
+            query = query.in('status', [...APPROVED_STATUS_VALUES]);
+          } else {
+            query = query.eq('status', statusFilter);
+          }
         }
         return query;
       }

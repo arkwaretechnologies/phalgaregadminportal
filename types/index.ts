@@ -19,7 +19,15 @@ export interface Registration {
   contactnum: string | null;
   email: string | null;
   regdate: string | null;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  status:
+    | 'PENDING'
+    | 'APPROVED'
+    | 'ACCEPTED'
+    | 'APPROVED REPRESENTATIVE ONLY'
+    | 'APPROVED PARTICIPANT AND ACCOMPANYING'
+    | 'APPROVED REPRESENTATIVE AND ACCOMPANYING'
+    | 'REJECTED'
+    | null;
   remarks: string | null;
   payment_proof_url?: string | null; // Payment proof file URL or path in storage
   participant_count?: number; // Derived: number of regD rows for this batchnum
@@ -31,6 +39,8 @@ export interface RegistrationDetail extends Registration {
   regd?: RegistrationDetailItem[];
   /** From `conference.is_anc` when loading detail; 'Y' = ANC (header LGU/Province hidden; participant Province/LGU shown, Barangay hidden). */
   is_anc?: string | null;
+  /** From `conference.is_award` when loading detail; 'Y' = award flow (pending UI label vs approval status). */
+  is_award?: string | null;
   /** From `conference.reg_fee` when loading detail; normalized to a number on the server. */
   reg_fee?: number | null;
 }
@@ -75,6 +85,8 @@ export interface Conference {
   closed_conference: string | null;
   /** When 'Y', LGU/Province are not used for this conference (ANC flow). */
   is_anc: string | null;
+  /** When 'Y', award approval uses ACCEPTED (rep only) or APPROVED REPRESENTATIVE AND ACCOMPANYING. */
+  is_award: string | null;
   /** `numeric` in DB (per-participant fee). PostgREST often serializes `numeric` as a JSON string. */
   reg_fee: number | string | null;
 }

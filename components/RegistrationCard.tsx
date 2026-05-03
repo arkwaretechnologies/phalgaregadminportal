@@ -1,6 +1,12 @@
 'use client';
 
 import { Registration } from '@/types';
+import {
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+  isApprovedStatus,
+} from '@/lib/registration-status';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ApprovalModal from './ApprovalModal';
@@ -22,10 +28,31 @@ export default function RegistrationCard({
       case 'APPROVED':
         return (
           <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             CONFIRMED{batchnum ? ` Batch ${batchnum}` : ''}
+          </span>
+        );
+      case ACCEPTED_AWARD_STATUS:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 max-w-md">
+            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-left leading-snug">{ACCEPTED_AWARD_STATUS}</span>
+          </span>
+        );
+      case APPROVED_REPRESENTATIVE_AND_ACCOMPANYING:
+      case APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 max-w-md">
+            <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-left leading-snug">
+              {APPROVED_REPRESENTATIVE_AND_ACCOMPANYING}
+            </span>
           </span>
         );
       case 'REJECTED':
@@ -99,7 +126,7 @@ export default function RegistrationCard({
           >
             View Details
           </button>
-          {registration.status !== 'APPROVED' && registration.status !== 'REJECTED' && (
+          {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
             <button
               onClick={() => setShowModal(true)}
               className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
