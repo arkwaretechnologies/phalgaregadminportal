@@ -179,18 +179,20 @@ function getAwardApprovalPortalStyleTemplate(data: StatusUpdateEmailData): strin
                 If you have any questions, please contact the registration team through the official channels announced for this event.
               </p>`;
 
-  const participantRow =
-    participantCount != null && Number.isFinite(participantCount)
-      ? `
+  const accompanyingDisplay =
+    participantCount != null && Number.isFinite(Number(participantCount))
+      ? Math.max(0, Math.floor(Number(participantCount)))
+      : 0;
+
+  const accompanyingRow = `
                 <tr>
                   <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">
-                    Number of Participants:
+                    Number of Accompanying:
                   </td>
                   <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px; font-weight: 500;">
-                    ${participantCount}
+                    ${accompanyingDisplay}
                   </td>
-                </tr>`
-      : '';
+                </tr>`;
 
   return `
 <!DOCTYPE html>
@@ -271,7 +273,7 @@ function getAwardApprovalPortalStyleTemplate(data: StatusUpdateEmailData): strin
                     ${escapeHtml(registration.contactnum || 'N/A')}
                   </td>
                 </tr>
-                ${participantRow}
+                ${accompanyingRow}
                 <tr>
                   <td style="padding: 10px; color: #666666; font-size: 14px;">
                     Status:
