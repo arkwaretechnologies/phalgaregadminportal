@@ -90,7 +90,7 @@ async function getRegistrations(status: string = 'all', search: string = '', con
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { status?: string; search?: string; confcode?: string };
+  searchParams: { status?: string; search?: string; confcode?: string; openRegid?: string };
 }) {
   const user = await getSession();
 
@@ -101,6 +101,7 @@ export default async function DashboardPage({
   const status = searchParams?.status || 'all';
   const search = searchParams?.search || '';
   let confcode = searchParams?.confcode || null;
+  const openRegid = (searchParams?.openRegid || '').trim() || null;
   
   // Get conferences available to this user
   const availableConferences = await getAvailableConferences(user);
@@ -122,6 +123,7 @@ export default async function DashboardPage({
       params.set('confcode', userDefaultConf);
       if (status !== 'all') params.set('status', status);
       if (search) params.set('search', search);
+      if (openRegid) params.set('openRegid', openRegid);
       redirect(`/dashboard?${params.toString()}`);
     }
     
@@ -132,6 +134,7 @@ export default async function DashboardPage({
       params.set('confcode', firstConf);
       if (status !== 'all') params.set('status', status);
       if (search) params.set('search', search);
+      if (openRegid) params.set('openRegid', openRegid);
       redirect(`/dashboard?${params.toString()}`);
     }
   } else {
@@ -144,6 +147,7 @@ export default async function DashboardPage({
         params.set('confcode', firstConf);
         if (status !== 'all') params.set('status', status);
         if (search) params.set('search', search);
+        if (openRegid) params.set('openRegid', openRegid);
         redirect(`/dashboard?${params.toString()}`);
       }
     }
@@ -168,6 +172,7 @@ export default async function DashboardPage({
       initialRegistrations={registrations}
       initialConfcode={confcode}
       initialSearch={search}
+      initialOpenRegid={openRegid}
       initialHideProvinceLgu={initialHideProvinceLgu}
       initialConferenceIsAward={initialConferenceIsAward}
     />

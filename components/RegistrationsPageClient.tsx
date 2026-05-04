@@ -74,12 +74,15 @@ export default function RegistrationsPageClient({
   initialRegistrations,
   initialConfcode,
   initialSearch = '',
+  initialOpenRegid = null,
   initialHideProvinceLgu = false,
   initialConferenceIsAward = false,
 }: {
   initialRegistrations: Registration[];
   initialConfcode?: string | null;
   initialSearch?: string;
+  /** When set with matching `initialSearch`, opens the registration detail modal once on load. */
+  initialOpenRegid?: string | null;
   initialHideProvinceLgu?: boolean;
   initialConferenceIsAward?: boolean;
 }) {
@@ -220,6 +223,7 @@ export default function RegistrationsPageClient({
         onRegistrationsChanged={handleRegistrationsChanged}
         confcode={selectedConfcode}
         initialSearch={initialSearch}
+        initialOpenRegid={initialOpenRegid}
         hideProvinceLgu={hideProvinceLgu}
         conferenceIsAward={conferenceIsAward}
       />

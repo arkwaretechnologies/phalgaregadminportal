@@ -64,6 +64,16 @@ export default function ApprovedParticipantsClient({
 
   const selectedConference = conferences.find(c => c.confcode === selectedConfcode);
 
+  /** Registrations list: search by Reg ID and open the View detail modal (see `openRegid` on dashboard). */
+  const registrationDashboardHref = (regid: string, rowConfcode: string | null) => {
+    const cc = rowConfcode || selectedConfcode || '';
+    const params = new URLSearchParams();
+    if (cc) params.set('confcode', cc);
+    params.set('search', regid);
+    params.set('openRegid', regid);
+    return `/dashboard?${params.toString()}`;
+  };
+
   // ── Filter registrations ──
   const filteredRegistrations = registrations.filter((reg) => {
     if (!searchQuery.trim()) return true;
@@ -446,33 +456,73 @@ export default function ApprovedParticipantsClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full min-w-[1000px] table-fixed divide-y divide-gray-200">
+              <colgroup>
+                <col style={{ width: '4.5rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col />
+                <col style={{ width: '10rem' }} />
+                <col style={{ width: '12rem' }} />
+                <col style={{ width: '7.5rem' }} />
+                <col style={{ width: '11rem' }} />
+                <col style={{ width: '6.5rem' }} />
+                <col style={{ width: '10.5rem' }} />
+              </colgroup>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Number</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Participants</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Part.</th>
+                  <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(paginatedData as ApprovedRegistration[]).map((reg, index) => (
-                  <tr key={`${reg.regid}-${index}`} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{reg.batchnum || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-indigo-700">{reg.regid || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{reg.contactperson || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{reg.email || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{reg.contactnum || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatDate(reg.regdate)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
+                  <tr key={`${reg.regid}-${index}`} className="group hover:bg-gray-50">
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{reg.batchnum || 'N/A'}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-indigo-700">{reg.regid || 'N/A'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-900 min-w-0">
+                      <span className="block truncate" title={reg.contactperson || undefined}>
+                        {reg.contactperson || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={[reg.province, reg.lgu].filter(Boolean).join(' / ') || undefined}>
+                        {[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={reg.email || undefined}>
+                        {reg.email || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{reg.contactnum || 'N/A'}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(reg.regdate)}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
                       <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                         {reg.participantCount}
                       </span>
+                    </td>
+                    <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                      {reg.regid ? (
+                        <a
+                          href={registrationDashboardHref(reg.regid, reg.confcode)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm shrink-0"
+                        >
+                          View registration
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -494,28 +544,65 @@ export default function ApprovedParticipantsClient({
         /* ── Participants Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full min-w-[900px] table-fixed divide-y divide-gray-200">
+              <colgroup>
+                <col />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '4.5rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col style={{ width: '10rem' }} />
+                <col style={{ width: '11rem' }} />
+                <col style={{ width: '10.5rem' }} />
+              </colgroup>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant Name</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant Name</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(paginatedData as Participant[]).map((p, index) => (
-                  <tr key={`${p.regid}-${p.linenum}-${index}`} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A'}
+                  <tr key={`${p.regid}-${p.linenum}-${index}`} className="group hover:bg-gray-50">
+                    <td className="px-2 py-2 text-sm text-gray-900 min-w-0">
+                      <span className="block truncate" title={[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || undefined}>
+                        {[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A'}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{p.designation || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{p.registration?.batchnum || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-indigo-700">{p.registration?.regid || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatDate(p.registration?.regdate ?? null)}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={p.designation || undefined}>{p.designation || 'N/A'}</span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{p.registration?.batchnum || 'N/A'}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-indigo-700">{p.registration?.regid || 'N/A'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={[p.province, p.lgu].filter(Boolean).join(' / ') || undefined}>
+                        {[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(p.registration?.regdate ?? null)}</td>
+                    <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                      {p.registration?.regid ? (
+                        <a
+                          href={registrationDashboardHref(
+                            p.registration.regid,
+                            p.registration?.confcode ?? null
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm shrink-0"
+                        >
+                          View registration
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

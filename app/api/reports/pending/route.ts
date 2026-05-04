@@ -68,6 +68,16 @@ export async function GET(request: NextRequest) {
 
     const regids = (pendingRegistrations || []).map((r: any) => r?.regid).filter((id: any) => id);
 
+    let conferenceIsAnc = false;
+    if (confcode) {
+      const { data: confRow } = await supabase
+        .from('conference')
+        .select('is_anc')
+        .eq('confcode', confcode.trim())
+        .maybeSingle();
+      conferenceIsAnc = String(confRow?.is_anc ?? '').toUpperCase() === 'Y';
+    }
+
     // Fetch all participants for these pending registrations
     let allParticipants: any[] = [];
     if (regids.length > 0) {
@@ -147,6 +157,8 @@ export async function GET(request: NextRequest) {
       total: registrationsWithCount.length,
       totalRegistrations,
       totalParticipants,
+      /** When the selected conference is ANC, client can match search against regd (participant) fields in registration view. */
+      ancRegdParticipants: conferenceIsAnc ? allParticipants : undefined,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
