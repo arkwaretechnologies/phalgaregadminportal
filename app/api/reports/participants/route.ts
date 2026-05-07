@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import { isRepresentativeRegdFirstname } from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -93,7 +93,16 @@ export async function GET(request: NextRequest) {
       supabaseServer,
       'regh',
       (query) => {
-        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false });
+        query = query
+          .or(
+            'status.eq.APPROVED,' +
+              'status.eq.ACCEPTED,' +
+              'status.eq."APPROVED REPRESENTATIVE AND ACCOMPANYING",' +
+              'status.eq."APPROVED PARTICIPANT AND ACCOMPANYING",' +
+              'status.ilike."APPROVED REPRESENTATIVE AND ACCOMPANYING%",' +
+              'status.ilike."APPROVED PARTICIPANT AND ACCOMPANYING%"'
+          )
+          .order('regdate', { ascending: false });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }
@@ -106,6 +115,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Failed to fetch approved registrations' },
         { status: 500 }
+      );
+    }
+
+    const conferenceCodes = Array.from(
+      new Set((approvedRegistrations || []).map((r: any) => r?.confcode).filter(Boolean))
+    ) as string[];
+    let awardConferenceSet = new Set<string>();
+    if (conferenceCodes.length > 0) {
+      const { data: conferenceRows } = await supabaseServer
+        .from('conference')
+        .select('confcode, is_award')
+        .in('confcode', conferenceCodes);
+      awardConferenceSet = new Set(
+        (conferenceRows || [])
+          .filter((c: any) => String(c?.is_award ?? '').toUpperCase() === 'Y')
+          .map((c: any) => c.confcode)
+          .filter(Boolean)
       );
     }
 
@@ -124,6 +150,53 @@ export async function GET(request: NextRequest) {
         console.error('Error fetching participants:', regdError);
       } else {
         allParticipants = regdRows || [];
+      }
+    }
+
+    // Award flow safeguard: if representative row isn't present in regd,
+    // synthesize one so approved reports always include representative + accompanying.
+    if (allParticipants.length > 0 && (approvedRegistrations || []).length > 0) {
+      let syntheticLineNum = -1;
+      const participantsByRegid = new Map<string, any[]>();
+      for (const p of allParticipants) {
+        const key = String(p?.regid ?? '');
+        if (!key) continue;
+        const arr = participantsByRegid.get(key) || [];
+        arr.push(p);
+        participantsByRegid.set(key, arr);
+      }
+
+      for (const reg of approvedRegistrations || []) {
+        const regid = String(reg?.regid ?? '');
+        const conf = String(reg?.confcode ?? '');
+        if (!regid || !conf || !awardConferenceSet.has(conf)) continue;
+
+        const existingRows = participantsByRegid.get(regid) || [];
+        const hasRepresentative = existingRows.some((row) =>
+          isRepresentativeRegdFirstname(row?.firstname)
+        );
+        if (hasRepresentative) continue;
+
+        const synthetic = {
+          regid,
+          confcode: reg.confcode ?? null,
+          batchnum: reg.batchnum ?? null,
+          linenum: syntheticLineNum--,
+          lastname: reg.contactperson || 'N/A',
+          firstname: 'REPRESENTATIVE',
+          middleinit: null,
+          suffix: null,
+          designation: 'REPRESENTATIVE',
+          brgy: null,
+          lgu: reg.lgu ?? null,
+          province: reg.province ?? null,
+          tshirtsize: null,
+          contactnum: reg.contactnum ?? null,
+          prcnum: null,
+          expirydate: null,
+          email: reg.email ?? null,
+        };
+        allParticipants.push(synthetic);
       }
     }
 
