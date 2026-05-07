@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import {
+  APPROVED_STATUS_VALUES,
+  isRepresentativeRegdFirstname,
+} from '@/lib/registration-status';
 
 /** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
 const REGID_IN_CHUNK_SIZE = 120;
@@ -237,6 +240,69 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch participants' },
         { status: 500 }
       );
+    }
+
+    const conferenceCodes = Array.from(
+      new Set((approvedRegistrations || []).map((r: any) => r?.confcode).filter(Boolean))
+    ) as string[];
+    let awardConferenceSet = new Set<string>();
+    if (conferenceCodes.length > 0) {
+      const { data: conferenceRows } = await supabaseServer
+        .from('conference')
+        .select('confcode, is_award')
+        .in('confcode', conferenceCodes);
+      awardConferenceSet = new Set(
+        (conferenceRows || [])
+          .filter((c: any) => String(c?.is_award ?? '').toUpperCase() === 'Y')
+          .map((c: any) => c.confcode)
+          .filter(Boolean)
+      );
+    }
+
+    // Award flow safeguard: if representative row isn't present in regd,
+    // synthesize one so participant exports include representative + accompanying.
+    if ((approvedRegistrations || []).length > 0) {
+      let syntheticLineNum = -1;
+      const participantsByRegid = new Map<string, any[]>();
+      for (const p of participants) {
+        const key = String(p?.regid ?? '');
+        if (!key) continue;
+        const arr = participantsByRegid.get(key) || [];
+        arr.push(p);
+        participantsByRegid.set(key, arr);
+      }
+
+      for (const reg of approvedRegistrations || []) {
+        const regid = String(reg?.regid ?? '');
+        const conf = String(reg?.confcode ?? '');
+        if (!regid || !conf || !awardConferenceSet.has(conf)) continue;
+
+        const existingRows = participantsByRegid.get(regid) || [];
+        const hasRepresentative = existingRows.some((row) =>
+          isRepresentativeRegdFirstname(row?.firstname)
+        );
+        if (hasRepresentative) continue;
+
+        participants.push({
+          regid,
+          confcode: reg.confcode ?? null,
+          batchnum: reg.batchnum ?? null,
+          linenum: syntheticLineNum--,
+          lastname: reg.contactperson || 'N/A',
+          firstname: 'REPRESENTATIVE',
+          middleinit: null,
+          suffix: null,
+          designation: 'REPRESENTATIVE',
+          brgy: null,
+          lgu: reg.lgu ?? null,
+          province: reg.province ?? null,
+          tshirtsize: null,
+          contactnum: reg.contactnum ?? null,
+          prcnum: null,
+          expirydate: null,
+          email: reg.email ?? null,
+        });
+      }
     }
 
     // Get all unique column names from regd table (from all participants to ensure we capture all columns)
