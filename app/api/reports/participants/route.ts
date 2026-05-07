@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
-import { isRepresentativeRegdFirstname } from '@/lib/registration-status';
+import {
+  APPROVED_STATUS_VALUES,
+  isRepresentativeRegdFirstname,
+} from '@/lib/registration-status';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -93,16 +96,7 @@ export async function GET(request: NextRequest) {
       supabaseServer,
       'regh',
       (query) => {
-        query = query
-          .or(
-            'status.eq.APPROVED,' +
-              'status.eq.ACCEPTED,' +
-              'status.eq."APPROVED REPRESENTATIVE AND ACCOMPANYING",' +
-              'status.eq."APPROVED PARTICIPANT AND ACCOMPANYING",' +
-              'status.ilike."APPROVED REPRESENTATIVE AND ACCOMPANYING%",' +
-              'status.ilike."APPROVED PARTICIPANT AND ACCOMPANYING%"'
-          )
-          .order('regdate', { ascending: false });
+        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }

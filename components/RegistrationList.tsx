@@ -20,6 +20,8 @@ interface RegistrationListProps {
   onRegistrationsChanged?: () => void;
   confcode?: string | null;
   initialSearch?: string;
+  /** If set (usually with URL `openRegid`), opens detail modal for this Reg ID once results load. */
+  initialOpenRegid?: string | null;
   /** When true, Province and LGU columns are hidden (conference `is_anc` = Y). */
   hideProvinceLgu?: boolean;
   /** When true, pending rows show label APPROVED REPRESENTATIVE ONLY (award conferences only). */
@@ -31,6 +33,7 @@ export default function RegistrationList({
   onRegistrationsChanged,
   confcode,
   initialSearch = '',
+  initialOpenRegid = null,
   hideProvinceLgu = false,
   conferenceIsAward = false,
 }: RegistrationListProps) {
@@ -319,6 +322,32 @@ export default function RegistrationList({
       setViewLoadingIdentifier((cur) => (cur === identifier ? null : cur));
     }
   };
+
+  const handleViewDetailsRef = useRef(handleViewDetails);
+  handleViewDetailsRef.current = handleViewDetails;
+  const openRegidConsumedRef = useRef<string | null>(null);
+
+  // Open detail modal from URL (e.g. /dashboard?search=...&openRegid=...) after the row is in the list
+  useEffect(() => {
+    if (!initialOpenRegid?.trim() || !confcode) return;
+    const target = initialOpenRegid.trim();
+    if (openRegidConsumedRef.current === target) return;
+
+    const reg = registrations.find(
+      (r) => String(r.regid ?? '').trim() === target
+    );
+    if (!reg) return;
+
+    openRegidConsumedRef.current = target;
+    void (async () => {
+      await handleViewDetailsRef.current(reg);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('openRegid');
+        window.history.replaceState({}, '', url.toString());
+      }
+    })();
+  }, [registrations, initialOpenRegid, confcode]);
 
   const handleApprovalSuccess = () => {
     setShowApprovalModal(false);

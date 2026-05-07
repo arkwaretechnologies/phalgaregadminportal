@@ -59,19 +59,74 @@ export default function PendingReportClient({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(50);
   const [searchQuery, setSearchQuery] = useState('');
+  /** regd rows for ANC conferences (registration view search matches participant fields). */
+  const [ancRegdParticipants, setAncRegdParticipants] = useState<PendingParticipant[]>([]);
 
   const selectedConference = conferences.find(c => c.confcode === selectedConfcode);
+  const isAncConf = String(selectedConference?.is_anc ?? '').toUpperCase() === 'Y';
+
+  /** Registrations list: search by Reg ID and open the View detail modal (see `openRegid` on dashboard). */
+  const registrationDashboardHref = (regid: string, rowConfcode: string | null) => {
+    const cc = rowConfcode || selectedConfcode || '';
+    const params = new URLSearchParams();
+    if (cc) params.set('confcode', cc);
+    params.set('search', regid);
+    params.set('openRegid', regid);
+    return `/dashboard?${params.toString()}`;
+  };
+
+  const matchesAncRegd = (
+    reg: PendingRegistration,
+    predicate: (p: PendingParticipant) => boolean
+  ): boolean => {
+    if (!isAncConf || ancRegdParticipants.length === 0) return false;
+    return ancRegdParticipants
+      .filter((p) => String(p.registration?.regid ?? p.regid ?? '') === reg.regid)
+      .some(predicate);
+  };
+
+  const participantFreeTextMatch = (reg: PendingRegistration, q: string): boolean =>
+    matchesAncRegd(reg, (p) => {
+      const name = [p.lastname, p.firstname, p.middleinit, p.suffix]
+        .filter((v: any) => v && v !== 'N/A')
+        .join(' ')
+        .toLowerCase();
+      const rid = String(p.regid ?? p.registration?.regid ?? '').toLowerCase();
+      return (
+        rid.includes(q) ||
+        name.includes(q) ||
+        String(p.province ?? '').toLowerCase().includes(q) ||
+        String(p.lgu ?? '').toLowerCase().includes(q) ||
+        String(p.email ?? '').toLowerCase().includes(q)
+      );
+    });
 
   // ── Filter registrations ──
   const filteredRegistrations = registrations.filter((reg) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
 
-    if (q.startsWith('regid:')) return (reg.regid || '').toLowerCase().includes(q.replace('regid:', '').trim());
-    if (q.startsWith('province:')) return (reg.province || '').toLowerCase().includes(q.replace('province:', '').trim());
-    if (q.startsWith('lgu:')) return (reg.lgu || '').toLowerCase().includes(q.replace('lgu:', '').trim());
+    if (q.startsWith('regid:')) {
+      const sub = q.replace('regid:', '').trim();
+      if ((reg.regid || '').toLowerCase().includes(sub)) return true;
+      return matchesAncRegd(reg, (p) => String(p.regid ?? '').toLowerCase().includes(sub));
+    }
+    if (q.startsWith('province:')) {
+      const sub = q.replace('province:', '').trim();
+      if ((reg.province || '').toLowerCase().includes(sub)) return true;
+      return matchesAncRegd(reg, (p) => String(p.province ?? '').toLowerCase().includes(sub));
+    }
+    if (q.startsWith('lgu:')) {
+      const sub = q.replace('lgu:', '').trim();
+      if ((reg.lgu || '').toLowerCase().includes(sub)) return true;
+      return matchesAncRegd(reg, (p) => String(p.lgu ?? '').toLowerCase().includes(sub));
+    }
     if (q.startsWith('contact:')) return (reg.contactperson || '').toLowerCase().includes(q.replace('contact:', '').trim());
-    if (q.startsWith('email:')) return (reg.email || '').toLowerCase().includes(q.replace('email:', '').trim());
+    if (q.startsWith('email:')) {
+      const sub = q.replace('email:', '').trim();
+      if ((reg.email || '').toLowerCase().includes(sub)) return true;
+      return matchesAncRegd(reg, (p) => String(p.email ?? '').toLowerCase().includes(sub));
+    }
 
     return (
       (reg.regid || '').toLowerCase().includes(q) ||
@@ -79,7 +134,8 @@ export default function PendingReportClient({
       (reg.lgu || '').toLowerCase().includes(q) ||
       (reg.contactperson || '').toLowerCase().includes(q) ||
       (reg.email || '').toLowerCase().includes(q) ||
-      (reg.contactnum || '').toLowerCase().includes(q)
+      (reg.contactnum || '').toLowerCase().includes(q) ||
+      participantFreeTextMatch(reg, q)
     );
   });
 
@@ -122,6 +178,7 @@ export default function PendingReportClient({
       if (!selectedConfcode) {
         setRegistrations([]);
         setParticipants([]);
+        setAncRegdParticipants([]);
         setTotal(0);
         setTotalRegistrations(0);
         setTotalParticipants(0);
@@ -144,9 +201,11 @@ export default function PendingReportClient({
           if (viewMode === 'participant') {
             setParticipants(data.participants || []);
             setRegistrations([]);
+            setAncRegdParticipants([]);
           } else {
             setRegistrations(data.registrations || []);
             setParticipants([]);
+            setAncRegdParticipants(data.ancRegdParticipants || []);
           }
           setTotal(data.total || 0);
           setTotalRegistrations(data.totalRegistrations || 0);
@@ -155,6 +214,7 @@ export default function PendingReportClient({
           setError(data.error || 'Failed to fetch data');
           setRegistrations([]);
           setParticipants([]);
+          setAncRegdParticipants([]);
           setTotal(0);
           setTotalRegistrations(0);
           setTotalParticipants(0);
@@ -164,6 +224,7 @@ export default function PendingReportClient({
         setError('An error occurred while fetching data');
         setRegistrations([]);
         setParticipants([]);
+        setAncRegdParticipants([]);
         setTotal(0);
         setTotalRegistrations(0);
         setTotalParticipants(0);
@@ -260,7 +321,9 @@ export default function PendingReportClient({
   const filteredCount = viewMode === 'registration' ? filteredRegistrations.length : filteredParticipants.length;
   const viewLabel = viewMode === 'registration' ? 'registrations' : 'participants';
   const searchPlaceholder = viewMode === 'registration'
-    ? 'Search by Reg ID, contact person, province, LGU, email, or use regid:xxx, province:xxx, lgu:xxx'
+    ? isAncConf
+      ? 'Search regh or participant (Reg ID, name, province, LGU, email). Prefixes: regid:, province:, lgu:, email:, contact:'
+      : 'Search by Reg ID, contact person, province, LGU, email, or use regid:xxx, province:xxx, lgu:xxx'
     : 'Search by name, designation, province, LGU, Reg ID, or use regid:xxx, province:xxx, lgu:xxx';
 
   return (
@@ -436,31 +499,70 @@ export default function PendingReportClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full min-w-[960px] table-fixed divide-y divide-gray-200">
+              <colgroup>
+                <col style={{ width: '7rem' }} />
+                <col />
+                <col style={{ width: '10rem' }} />
+                <col style={{ width: '12rem' }} />
+                <col style={{ width: '7.5rem' }} />
+                <col style={{ width: '11rem' }} />
+                <col style={{ width: '6.5rem' }} />
+                <col style={{ width: '10.5rem' }} />
+              </colgroup>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Number</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Participants</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Part.</th>
+                  <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(paginatedData as PendingRegistration[]).map((reg, index) => (
-                  <tr key={`${reg.regid}-${index}`} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-amber-700">{reg.regid || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{reg.contactperson || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{reg.email || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{reg.contactnum || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatDate(reg.regdate)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
+                  <tr key={`${reg.regid}-${index}`} className="group hover:bg-gray-50">
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-amber-700">{reg.regid || 'N/A'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-900 min-w-0">
+                      <span className="block truncate" title={reg.contactperson || undefined}>
+                        {reg.contactperson || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={[reg.province, reg.lgu].filter(Boolean).join(' / ') || undefined}>
+                        {[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={reg.email || undefined}>
+                        {reg.email || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{reg.contactnum || 'N/A'}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(reg.regdate)}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
                       <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                         {reg.participantCount}
                       </span>
+                    </td>
+                    <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                      {reg.regid ? (
+                        <a
+                          href={registrationDashboardHref(reg.regid, reg.confcode)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-sm shrink-0"
+                        >
+                          View registration
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -482,30 +584,72 @@ export default function PendingReportClient({
         /* ── Participants Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="w-full min-w-[1000px] table-fixed divide-y divide-gray-200">
+              <colgroup>
+                <col />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col style={{ width: '10rem' }} />
+                <col style={{ width: '7.5rem' }} />
+                <col style={{ width: '12rem' }} />
+                <col style={{ width: '11rem' }} />
+                <col style={{ width: '10.5rem' }} />
+              </colgroup>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant Name</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Number</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant Name</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
+                  <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {(paginatedData as PendingParticipant[]).map((p, index) => (
-                  <tr key={`${p.regid}-${p.linenum}-${index}`} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A'}
+                  <tr key={`${p.regid}-${p.linenum}-${index}`} className="group hover:bg-gray-50">
+                    <td className="px-2 py-2 text-sm text-gray-900 min-w-0">
+                      <span className="block truncate" title={[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || undefined}>
+                        {[p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A'}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{p.designation || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-amber-700">{p.registration?.regid || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{p.contactnum || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{p.email || 'N/A'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatDate(p.registration?.regdate ?? null)}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={p.designation || undefined}>{p.designation || 'N/A'}</span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-amber-700">{p.registration?.regid || 'N/A'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={[p.province, p.lgu].filter(Boolean).join(' / ') || undefined}>
+                        {[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{p.contactnum || 'N/A'}</td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={p.email || undefined}>
+                        {p.email || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(p.registration?.regdate ?? null)}</td>
+                    <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                      {p.registration?.regid ? (
+                        <a
+                          href={registrationDashboardHref(
+                            p.registration.regid,
+                            p.registration?.confcode ?? null
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-sm shrink-0"
+                        >
+                          View registration
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
