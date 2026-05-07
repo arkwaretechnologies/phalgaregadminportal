@@ -10,6 +10,22 @@ import {
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+function getRepresentativeDesignationFromRegh(reg: any): string | null {
+  const candidates = [
+    reg?.designation,
+    reg?.rep_designation,
+    reg?.representative_designation,
+    reg?.position,
+    reg?.posname,
+    reg?.title,
+  ];
+  for (const c of candidates) {
+    const s = String(c ?? '').trim();
+    if (s) return s;
+  }
+  return null;
+}
+
 /** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
 const REGID_IN_CHUNK_SIZE = 120;
 
@@ -171,6 +187,7 @@ export async function GET(request: NextRequest) {
         );
         if (hasRepresentative) continue;
 
+        const repDesignation = getRepresentativeDesignationFromRegh(reg) ?? 'REPRESENTATIVE';
         const synthetic = {
           regid,
           confcode: reg.confcode ?? null,
@@ -180,7 +197,7 @@ export async function GET(request: NextRequest) {
           firstname: 'REPRESENTATIVE',
           middleinit: null,
           suffix: null,
-          designation: 'REPRESENTATIVE',
+          designation: repDesignation,
           brgy: null,
           lgu: reg.lgu ?? null,
           province: reg.province ?? null,
@@ -228,10 +245,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const registrationsByRegid = new Map<string, any>();
+    for (const r of approvedRegistrations || []) {
+      const key = String((r as any)?.regid ?? '');
+      if (key) registrationsByRegid.set(key, r);
+    }
+
     const participantsWithRegInfo = allParticipants.map((participant: any) => {
-      const registration = (approvedRegistrations || []).find((r: any) => r.regid === participant.regid);
+      const registration = registrationsByRegid.get(String(participant.regid ?? '')) ?? null;
+      const conf = String(registration?.confcode ?? participant?.confcode ?? '');
+      const isAwardConf = conf && awardConferenceSet.has(conf);
+      const isRepresentative = isRepresentativeRegdFirstname(participant?.firstname);
+      const repDesignation =
+        isAwardConf && isRepresentative
+          ? getRepresentativeDesignationFromRegh(registration) ?? participant?.designation ?? 'REPRESENTATIVE'
+          : participant?.designation;
       return {
         ...participant,
+        designation: repDesignation,
         registration: registration ? {
           regid: registration.regid,
           batchnum: registration.batchnum,
