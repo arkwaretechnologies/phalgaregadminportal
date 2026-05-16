@@ -63,6 +63,7 @@ export default function ApprovedParticipantsClient({
   const [searchQuery, setSearchQuery] = useState('');
 
   const selectedConference = conferences.find(c => c.confcode === selectedConfcode);
+  const isAncConf = String(selectedConference?.is_anc ?? '').toUpperCase() === 'Y';
 
   /** Registrations list: search by Reg ID and open the View detail modal (see `openRegid` on dashboard). */
   const registrationDashboardHref = (regid: string, rowConfcode: string | null) => {
@@ -219,6 +220,20 @@ export default function ApprovedParticipantsClient({
     }
   };
 
+  const formatDateOnly = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
   // ── Export ──
   const handleExportExcel = () => {
     if (!selectedConfcode) return;
@@ -252,19 +267,34 @@ export default function ApprovedParticipantsClient({
         XLSX.writeFile(wb, `${safeConfName}_approved_registrations.xlsx`);
       } else {
         if (participants.length === 0) return;
-        const data = participants.map((p) => ({
-          'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
-          'Designation': p.designation || 'N/A',
-          'Batch #': p.registration?.batchnum || 'N/A',
-          'Registration ID': p.registration?.regid || 'N/A',
-          'Province / LGU': [p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A',
-          'Registration Date': formatDate(p.registration?.regdate ?? null),
-        }));
+        const data = participants.map((p) => {
+          const row: Record<string, string> = {
+            'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
+            'Designation': p.designation || 'N/A',
+            'Batch #': String(p.registration?.batchnum ?? 'N/A'),
+            'Registration ID': p.registration?.regid || 'N/A',
+            'Province': p.province || 'N/A',
+            'LGU': p.lgu || 'N/A',
+          };
+          if (isAncConf) {
+            row['Contact No.'] = p.contactnum || 'N/A';
+            row['Email Address'] = p.email || 'N/A';
+            row['PRC No'] = p.prcnum || 'N/A';
+            row['Expiry Date'] = formatDateOnly(p.expirydate);
+          }
+          row['Registration Date'] = formatDate(p.registration?.regdate ?? null);
+          return row;
+        });
 
         const ws = XLSX.utils.json_to_sheet(data);
-        ws['!cols'] = [
-          { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 40 }, { wch: 30 },
-        ];
+        ws['!cols'] = isAncConf
+          ? [
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 30 },
+            ]
+          : [
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 30 },
+            ];
         XLSX.utils.book_append_sheet(wb, ws, 'Approved Participants');
         XLSX.writeFile(wb, `${safeConfName}_approved_participants.xlsx`);
       }
@@ -456,12 +486,13 @@ export default function ApprovedParticipantsClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1080px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col style={{ width: '4.5rem' }} />
                 <col style={{ width: '7rem' }} />
                 <col />
-                <col style={{ width: '10rem' }} />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '8rem' }} />
                 <col style={{ width: '12rem' }} />
                 <col style={{ width: '7.5rem' }} />
                 <col style={{ width: '11rem' }} />
@@ -473,7 +504,8 @@ export default function ApprovedParticipantsClient({
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LGU</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
@@ -494,8 +526,13 @@ export default function ApprovedParticipantsClient({
                       </span>
                     </td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
-                      <span className="block truncate" title={[reg.province, reg.lgu].filter(Boolean).join(' / ') || undefined}>
-                        {[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      <span className="block truncate" title={reg.province || undefined}>
+                        {reg.province || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={reg.lgu || undefined}>
+                        {reg.lgu || 'N/A'}
                       </span>
                     </td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
@@ -544,13 +581,14 @@ export default function ApprovedParticipantsClient({
         /* ── Participants Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[980px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col />
                 <col style={{ width: '8rem' }} />
                 <col style={{ width: '4.5rem' }} />
                 <col style={{ width: '7rem' }} />
-                <col style={{ width: '10rem' }} />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '8rem' }} />
                 <col style={{ width: '11rem' }} />
                 <col style={{ width: '10.5rem' }} />
               </colgroup>
@@ -560,7 +598,8 @@ export default function ApprovedParticipantsClient({
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LGU</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
                   <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                     Actions
@@ -581,8 +620,13 @@ export default function ApprovedParticipantsClient({
                     <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{p.registration?.batchnum || 'N/A'}</td>
                     <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-indigo-700">{p.registration?.regid || 'N/A'}</td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
-                      <span className="block truncate" title={[p.province, p.lgu].filter(Boolean).join(' / ') || undefined}>
-                        {[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      <span className="block truncate" title={p.province || undefined}>
+                        {p.province || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={p.lgu || undefined}>
+                        {p.lgu || 'N/A'}
                       </span>
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(p.registration?.regdate ?? null)}</td>

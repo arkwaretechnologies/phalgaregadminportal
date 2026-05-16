@@ -259,6 +259,20 @@ export default function PendingReportClient({
     }
   };
 
+  const formatDateOnly = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
   // ── Export ──
   const handleExportExcel = () => {
     if (!selectedConfcode) return;
@@ -291,21 +305,37 @@ export default function PendingReportClient({
         XLSX.writeFile(wb, `${safeConfName}_pending_registrations.xlsx`);
       } else {
         if (participants.length === 0) return;
-        const data = participants.map((p) => ({
-          'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
-          'Designation': p.designation || 'N/A',
-          'Registration ID': p.registration?.regid || 'N/A',
-          'Province / LGU': [p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A',
-          'Contact Number': p.contactnum || 'N/A',
-          'Email': p.email || 'N/A',
-          'Registration Date': formatDate(p.registration?.regdate ?? null),
-        }));
+        const data = participants.map((p) => {
+          const row: Record<string, string> = {
+            'Participant Name': [p.lastname, p.firstname, p.middleinit, p.suffix].filter((v: any) => v && v !== 'N/A').join(', ') || 'N/A',
+            'Designation': p.designation || 'N/A',
+            'Registration ID': p.registration?.regid || 'N/A',
+            'Province': p.province || 'N/A',
+            'LGU': p.lgu || 'N/A',
+          };
+          if (isAncConf) {
+            row['Contact No.'] = p.contactnum || 'N/A';
+            row['Email Address'] = p.email || 'N/A';
+            row['PRC No'] = p.prcnum || 'N/A';
+            row['Expiry Date'] = formatDateOnly(p.expirydate);
+          } else {
+            row['Contact Number'] = p.contactnum || 'N/A';
+            row['Email'] = p.email || 'N/A';
+          }
+          row['Registration Date'] = formatDate(p.registration?.regdate ?? null);
+          return row;
+        });
 
         const ws = XLSX.utils.json_to_sheet(data);
-        ws['!cols'] = [
-          { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 40 },
-          { wch: 18 }, { wch: 30 }, { wch: 30 },
-        ];
+        ws['!cols'] = isAncConf
+          ? [
+              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 30 },
+            ]
+          : [
+              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 18 }, { wch: 30 }, { wch: 30 },
+            ];
         XLSX.utils.book_append_sheet(wb, ws, 'Pending Participants');
         XLSX.writeFile(wb, `${safeConfName}_pending_participants.xlsx`);
       }
@@ -499,11 +529,12 @@ export default function PendingReportClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1040px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col style={{ width: '7rem' }} />
                 <col />
-                <col style={{ width: '10rem' }} />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '8rem' }} />
                 <col style={{ width: '12rem' }} />
                 <col style={{ width: '7.5rem' }} />
                 <col style={{ width: '11rem' }} />
@@ -514,7 +545,8 @@ export default function PendingReportClient({
                 <tr>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LGU</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
@@ -534,8 +566,13 @@ export default function PendingReportClient({
                       </span>
                     </td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
-                      <span className="block truncate" title={[reg.province, reg.lgu].filter(Boolean).join(' / ') || undefined}>
-                        {[reg.province, reg.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      <span className="block truncate" title={reg.province || undefined}>
+                        {reg.province || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={reg.lgu || undefined}>
+                        {reg.lgu || 'N/A'}
                       </span>
                     </td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
@@ -584,12 +621,13 @@ export default function PendingReportClient({
         /* ── Participants Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1080px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col />
                 <col style={{ width: '8rem' }} />
                 <col style={{ width: '7rem' }} />
-                <col style={{ width: '10rem' }} />
+                <col style={{ width: '8rem' }} />
+                <col style={{ width: '8rem' }} />
                 <col style={{ width: '7.5rem' }} />
                 <col style={{ width: '12rem' }} />
                 <col style={{ width: '11rem' }} />
@@ -600,7 +638,8 @@ export default function PendingReportClient({
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant Name</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
-                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province / LGU</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province</th>
+                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LGU</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
@@ -622,8 +661,13 @@ export default function PendingReportClient({
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-amber-700">{p.registration?.regid || 'N/A'}</td>
                     <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
-                      <span className="block truncate" title={[p.province, p.lgu].filter(Boolean).join(' / ') || undefined}>
-                        {[p.province, p.lgu].filter(Boolean).join(' / ') || 'N/A'}
+                      <span className="block truncate" title={p.province || undefined}>
+                        {p.province || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 text-sm text-gray-500 min-w-0">
+                      <span className="block truncate" title={p.lgu || undefined}>
+                        {p.lgu || 'N/A'}
                       </span>
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">{p.contactnum || 'N/A'}</td>
