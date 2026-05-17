@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
-import { fetchAllApprovedReportData } from '@/lib/all-approved-report-data';
 import { requireAuth } from '@/lib/auth';
+import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -118,9 +118,17 @@ export async function GET(request: NextRequest) {
     const confcode = searchParams.get('confcode');
     const format = (searchParams.get('format') || 'csv').toLowerCase(); // csv | sql
 
-    const { data: reportData, error: regError } = await fetchAllApprovedReportData(
+    // Fetch approved registrations, optionally filtered by conference (no row limit)
+    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       supabaseServer,
-      confcode
+      'regh',
+      (query) => {
+        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false }).order('regid', { ascending: true });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
     );
 
     if (regError) {
@@ -131,10 +139,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const approvedRegistrations = reportData?.approvedRegistrations ?? [];
-    const regids = reportData?.regids ?? [];
-
-    if (approvedRegistrations.length === 0) {
+    if (!approvedRegistrations || approvedRegistrations.length === 0) {
       // Get regdep columns structure for empty CSV with headers
       const { data: sampleDependents } = await supabaseServer
         .from('regdep')
@@ -185,6 +190,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Fetch all regdep rows where regid is in approved registrations
+    // regdep is linked to regh by regid
+    const regids = approvedRegistrations
+      .map(reg => reg.regid)
+      .filter((id): id is string => id !== null && id !== undefined);
+    
     let dependents: any[] = [];
     let dependentError = null;
 

@@ -1,14 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
-import { fetchAllApprovedReportData } from '@/lib/all-approved-report-data';
 import { requireAuth } from '@/lib/auth';
 import {
-  conferenceUsesAwardApprovedReportStatuses,
+  APPROVED_STATUS_VALUES,
   isRepresentativeRegdFirstname,
 } from '@/lib/registration-status';
 
+/** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
+const REGID_IN_CHUNK_SIZE = 120;
+
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
+
+// Helper function to fetch all records without Supabase's default 1000 row limit
+async function fetchAllRecords(
+  client: SupabaseClient,
+  table: string,
+  queryBuilder: (query: any) => any,
+  pageSize: number = 1000
+): Promise<{ data: any[]; error: any }> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = client.from(table).select('*');
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      // If we got fewer results than pageSize, we've reached the end
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
+async function fetchRegdForRegIds(
+  client: SupabaseClient,
+  regids: string[],
+  confcode: string | null,
+  pageSize: number
+): Promise<{ data: any[]; error: any }> {
+  const merged: any[] = [];
+
+  for (let i = 0; i < regids.length; i += REGID_IN_CHUNK_SIZE) {
+    const chunk = regids.slice(i, i + REGID_IN_CHUNK_SIZE);
+    const { data, error } = await fetchAllRecords(
+      client,
+      'regd',
+      (query) => {
+        let q = query.in('regid', chunk).order('regid', { ascending: true }).order('linenum', { ascending: true });
+        if (confcode) {
+          q = q.eq('confcode', confcode);
+        }
+        return q;
+      },
+      pageSize
+    );
+    if (error) {
+      return { data: [], error };
+    }
+    if (data?.length) {
+      merged.push(...data);
+    }
+  }
+
+  merged.sort((a, b) => {
+    const ra = String(a.regid ?? '');
+    const rb = String(b.regid ?? '');
+    if (ra !== rb) return ra.localeCompare(rb);
+    const la = Number(a.linenum ?? 0);
+    const lb = Number(b.linenum ?? 0);
+    return la - lb;
+  });
+
+  return { data: merged, error: null };
+}
 
 // Helper function to escape CSV values
 function escapeCSV(value: any): string {
@@ -48,23 +128,28 @@ export async function GET(request: NextRequest) {
     const confcode = searchParams.get('confcode');
     const format = (searchParams.get('format') || 'csv').toLowerCase(); // csv | sql
 
-    const { data: reportData, error: reportError } = await fetchAllApprovedReportData(
+    // Fetch approved registrations, optionally filtered by conference (no row limit)
+    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       supabaseServer,
-      confcode
+      'regh',
+      (query) => {
+        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false }).order('regid', { ascending: true });
+        if (confcode) {
+          query = query.eq('confcode', confcode);
+        }
+        return query;
+      }
     );
 
-    if (reportError) {
-      console.error('Error fetching approved report data:', reportError);
+    if (regError) {
+      console.error('Error fetching approved registrations:', regError);
       return NextResponse.json(
         { error: 'Failed to fetch approved registrations' },
         { status: 500 }
       );
     }
 
-    const approvedRegistrations = reportData?.approvedRegistrations ?? [];
-    const isAwardConference = reportData?.isAwardConference ?? false;
-
-    if (approvedRegistrations.length === 0) {
+    if (!approvedRegistrations || approvedRegistrations.length === 0) {
       // Get regd columns structure for empty CSV with headers
       const { data: sampleParticipants } = await supabaseServer
         .from('regd')
@@ -128,14 +213,55 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let participants: any[] = [...(reportData?.dbParticipants ?? [])];
+    // Fetch all regd rows where regid is in approved registrations
+    // regd is linked to regh by regid, not batchnum (batchnum is only generated when approved)
+    const regids = approvedRegistrations
+      .map(reg => reg.regid)
+      .filter((id): id is string => id !== null && id !== undefined);
+    
+    let participants: any[] = [];
+    let participantError = null;
 
-    // Non–is_award award-style conferences: optional synthetic representative (matches All Approved Report).
-    if (
-      !isAwardConference &&
-      conferenceUsesAwardApprovedReportStatuses(reportData?.conferenceMeta) &&
-      approvedRegistrations.length > 0
-    ) {
+    if (regids.length > 0) {
+      // Fetch all participants without row limit
+      const { data, error } = await fetchRegdForRegIds(
+        supabaseServer,
+        regids,
+        confcode,
+        1000
+      );
+      participants = data || [];
+      participantError = error;
+    }
+
+    if (participantError) {
+      console.error('Error fetching participants:', participantError);
+      return NextResponse.json(
+        { error: 'Failed to fetch participants' },
+        { status: 500 }
+      );
+    }
+
+    const conferenceCodes = Array.from(
+      new Set((approvedRegistrations || []).map((r: any) => r?.confcode).filter(Boolean))
+    ) as string[];
+    let awardConferenceSet = new Set<string>();
+    if (conferenceCodes.length > 0) {
+      const { data: conferenceRows } = await supabaseServer
+        .from('conference')
+        .select('confcode, is_award')
+        .in('confcode', conferenceCodes);
+      awardConferenceSet = new Set(
+        (conferenceRows || [])
+          .filter((c: any) => String(c?.is_award ?? '').toUpperCase() === 'Y')
+          .map((c: any) => c.confcode)
+          .filter(Boolean)
+      );
+    }
+
+    // Award flow safeguard: if representative row isn't present in regd,
+    // synthesize one so participant exports include representative + accompanying.
+    if ((approvedRegistrations || []).length > 0) {
       let syntheticLineNum = -1;
       const participantsByRegid = new Map<string, any[]>();
       for (const p of participants) {
@@ -146,9 +272,10 @@ export async function GET(request: NextRequest) {
         participantsByRegid.set(key, arr);
       }
 
-      for (const reg of approvedRegistrations) {
+      for (const reg of approvedRegistrations || []) {
         const regid = String(reg?.regid ?? '');
-        if (!regid) continue;
+        const conf = String(reg?.confcode ?? '');
+        if (!regid || !conf || !awardConferenceSet.has(conf)) continue;
 
         const existingRows = participantsByRegid.get(regid) || [];
         const hasRepresentative = existingRows.some((row) =>
