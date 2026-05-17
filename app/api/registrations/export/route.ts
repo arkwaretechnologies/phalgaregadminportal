@@ -1,44 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase-server';
+import { fetchAllApprovedReportData } from '@/lib/all-approved-report-data';
 import { requireAuth } from '@/lib/auth';
-import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-// Helper function to fetch all records without Supabase's default 1000 row limit
-async function fetchAllRecords(
-  table: string,
-  queryBuilder: (query: any) => any,
-  pageSize: number = 1000
-): Promise<{ data: any[]; error: any }> {
-  const allData: any[] = [];
-  let from = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    let query = supabase.from(table).select('*');
-    query = queryBuilder(query);
-    query = query.range(from, from + pageSize - 1);
-
-    const { data, error } = await query;
-
-    if (error) {
-      return { data: [], error };
-    }
-
-    if (data && data.length > 0) {
-      allData.push(...data);
-      from += pageSize;
-      // If we got fewer results than pageSize, we've reached the end
-      hasMore = data.length === pageSize;
-    } else {
-      hasMore = false;
-    }
-  }
-
-  return { data: allData, error: null };
-}
 
 // Helper function to escape CSV values
 function escapeCSV(value: any): string {
@@ -76,16 +43,9 @@ export async function GET(request: NextRequest) {
     const confcode = searchParams.get('confcode');
     const format = (searchParams.get('format') || 'csv').toLowerCase(); // csv | sql
 
-    // Fetch approved registrations, optionally filtered by conference (no row limit)
-    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
-      'regh',
-      (query) => {
-        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false }).order('regid', { ascending: true });
-        if (confcode) {
-          query = query.eq('confcode', confcode);
-        }
-        return query;
-      }
+    const { data: reportData, error: regError } = await fetchAllApprovedReportData(
+      supabaseServer,
+      confcode
     );
 
     if (regError) {
@@ -95,6 +55,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    const approvedRegistrations = reportData?.approvedRegistrations ?? [];
 
     // Determine column order (keep Supabase column names and casing)
     let reghColumns: string[] = [];

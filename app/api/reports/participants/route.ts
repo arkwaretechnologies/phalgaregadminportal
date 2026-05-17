@@ -3,7 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
 import {
-  APPROVED_STATUS_VALUES,
+  ACCEPTED_AWARD_STATUS,
+  APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
+  conferenceIsAward,
+  conferenceUsesAwardApprovedReportStatuses,
+  getAllApprovedReportStatusFilter,
+  isAllApprovedReportStatus,
+  isIsAwardApprovedReportReghStatus,
   isRepresentativeRegdFirstname,
 } from '@/lib/registration-status';
 
@@ -97,6 +103,22 @@ async function fetchRegdByRegIds(
   return { data: merged, error: null };
 }
 
+/** Mirrors `COUNT(regd) WHERE EXISTS (regh … confcode AND status = ?)`. */
+function countRegdForReghStatus(
+  regdRows: any[],
+  registrations: any[],
+  status: string
+): number {
+  const regidSet = new Set(
+    registrations
+      .filter((r) => String(r?.status ?? '').trim() === status)
+      .map((r) => String(r?.regid ?? '').trim())
+      .filter(Boolean)
+  );
+  if (regidSet.size === 0) return 0;
+  return regdRows.filter((p) => regidSet.has(String(p?.regid ?? '').trim())).length;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and role
@@ -107,18 +129,40 @@ export async function GET(request: NextRequest) {
 
     const view = searchParams.get('view') || 'participant';
 
+    let conferenceMeta: { is_award?: string | null; confcode?: string | null } | null = null;
+    if (confcode) {
+      const { data: confRow } = await supabaseServer
+        .from('conference')
+        .select('confcode, is_award')
+        .eq('confcode', confcode.trim())
+        .maybeSingle();
+      conferenceMeta = confRow ?? { confcode: confcode.trim(), is_award: null };
+    }
+
+    const isAwardConference = conferenceIsAward(conferenceMeta?.is_award);
+    const reportStatusFilter = [...getAllApprovedReportStatusFilter(conferenceMeta)];
+    const useAwardApprovedStatuses = conferenceUsesAwardApprovedReportStatuses(conferenceMeta);
+
     // Fetch approved registrations (no row limit)
-    const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
+    const { data: rawApprovedRegistrations, error: regError } = await fetchAllRecords(
       supabaseServer,
       'regh',
       (query) => {
-        query = query.in('status', [...APPROVED_STATUS_VALUES]).order('regdate', { ascending: false });
+        query = query.in('status', reportStatusFilter).order('regdate', { ascending: false });
         if (confcode) {
           query = query.eq('confcode', confcode);
         }
         return query;
       }
     );
+
+    const approvedRegistrations = isAwardConference
+      ? (rawApprovedRegistrations || []).filter((r: any) =>
+          isIsAwardApprovedReportReghStatus(r?.status)
+        )
+      : useAwardApprovedStatuses
+        ? (rawApprovedRegistrations || []).filter((r: any) => isAllApprovedReportStatus(r?.status))
+        : rawApprovedRegistrations || [];
 
     if (regError) {
       console.error('Error fetching approved registrations:', regError);
@@ -139,7 +183,7 @@ export async function GET(request: NextRequest) {
         .in('confcode', conferenceCodes);
       awardConferenceSet = new Set(
         (conferenceRows || [])
-          .filter((c: any) => String(c?.is_award ?? '').toUpperCase() === 'Y')
+          .filter((c: any) => conferenceUsesAwardApprovedReportStatuses(c))
           .map((c: any) => c.confcode)
           .filter(Boolean)
       );
@@ -163,12 +207,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Award flow safeguard: if representative row isn't present in regd,
-    // synthesize one so approved reports always include representative + accompanying.
-    if (allParticipants.length > 0 && (approvedRegistrations || []).length > 0) {
+    // Real regd rows only — used for summary totals and per-registration counts.
+    const dbParticipants = [...allParticipants];
+
+    // Optional synthetic representative for participant list (non–is_award award-style conferences only).
+    const syntheticParticipants: any[] = [];
+    if (
+      !isAwardConference &&
+      dbParticipants.length > 0 &&
+      (approvedRegistrations || []).length > 0
+    ) {
       let syntheticLineNum = -1;
       const participantsByRegid = new Map<string, any[]>();
-      for (const p of allParticipants) {
+      for (const p of dbParticipants) {
         const key = String(p?.regid ?? '');
         if (!key) continue;
         const arr = participantsByRegid.get(key) || [];
@@ -188,7 +239,7 @@ export async function GET(request: NextRequest) {
         if (hasRepresentative) continue;
 
         const repDesignation = getRepresentativeDesignationFromRegh(reg) ?? 'REPRESENTATIVE';
-        const synthetic = {
+        syntheticParticipants.push({
           regid,
           confcode: reg.confcode ?? null,
           batchnum: reg.batchnum ?? null,
@@ -206,17 +257,26 @@ export async function GET(request: NextRequest) {
           prcnum: null,
           expirydate: null,
           email: reg.email ?? null,
-        };
-        allParticipants.push(synthetic);
+          _syntheticRepresentative: true,
+        });
       }
     }
 
+    const participantsForList = [...dbParticipants, ...syntheticParticipants];
+
     const totalRegistrations = (approvedRegistrations || []).length;
-    const totalParticipants = allParticipants.length;
+    const totalParticipants = isAwardConference
+      ? countRegdForReghStatus(dbParticipants, approvedRegistrations, ACCEPTED_AWARD_STATUS) +
+        countRegdForReghStatus(
+          dbParticipants,
+          approvedRegistrations,
+          APPROVED_REPRESENTATIVE_AND_ACCOMPANYING
+        )
+      : dbParticipants.length;
 
     if (view === 'registration') {
       const participantCountMap: Record<string, number> = {};
-      allParticipants.forEach((p: any) => {
+      dbParticipants.forEach((p: any) => {
         const regid = p.regid;
         if (regid) {
           participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
@@ -227,6 +287,7 @@ export async function GET(request: NextRequest) {
         regid: reg.regid,
         batchnum: reg.batchnum,
         confcode: reg.confcode,
+        status: reg.status,
         province: reg.province,
         lgu: reg.lgu,
         contactperson: reg.contactperson,
@@ -251,7 +312,7 @@ export async function GET(request: NextRequest) {
       if (key) registrationsByRegid.set(key, r);
     }
 
-    const participantsWithRegInfo = allParticipants.map((participant: any) => {
+    const participantsWithRegInfo = participantsForList.map((participant: any) => {
       const registration = registrationsByRegid.get(String(participant.regid ?? '')) ?? null;
       const conf = String(registration?.confcode ?? participant?.confcode ?? '');
       const isAwardConf = conf && awardConferenceSet.has(conf);
@@ -280,7 +341,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       view: 'participant',
       participants: participantsWithRegInfo,
-      total: participantsWithRegInfo.length,
+      total: totalParticipants,
       totalRegistrations,
       totalParticipants,
     });
