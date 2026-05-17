@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import {
   APPROVED_STATUS_VALUES,
   isRepresentativeRegdFirstname,
+  linenumForReghRepresentativeExport,
 } from '@/lib/registration-status';
 
 /** PostgREST `.in('regid', …)` is sent on the query string; keep chunks well under URL limits. */
@@ -259,10 +260,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Award flow safeguard: if representative row isn't present in regd,
-    // synthesize one so participant exports include representative + accompanying.
+    // Award (`is_award = Y`): if representative row isn't in regd, synthesize from regh for export.
     if ((approvedRegistrations || []).length > 0) {
-      let syntheticLineNum = -1;
       const participantsByRegid = new Map<string, any[]>();
       for (const p of participants) {
         const key = String(p?.regid ?? '');
@@ -287,7 +286,7 @@ export async function GET(request: NextRequest) {
           regid,
           confcode: reg.confcode ?? null,
           batchnum: reg.batchnum ?? null,
-          linenum: syntheticLineNum--,
+          linenum: linenumForReghRepresentativeExport(existingRows),
           lastname: reg.contactperson || 'N/A',
           firstname: 'REPRESENTATIVE',
           middleinit: null,
@@ -303,6 +302,13 @@ export async function GET(request: NextRequest) {
           email: reg.email ?? null,
         });
       }
+
+      participants.sort((a, b) => {
+        const ra = String(a.regid ?? '');
+        const rb = String(b.regid ?? '');
+        if (ra !== rb) return ra.localeCompare(rb);
+        return Number(a.linenum ?? 0) - Number(b.linenum ?? 0);
+      });
     }
 
     // Get all unique column names from regd table (from all participants to ensure we capture all columns)

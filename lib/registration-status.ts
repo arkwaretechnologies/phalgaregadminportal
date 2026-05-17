@@ -34,6 +34,30 @@ export function countAwardAccompanyingOnly(
   );
 }
 
+export function maxRegdLinenum(
+  regd: ReadonlyArray<{ linenum?: number | null }> | null | undefined
+): number {
+  if (!regd?.length) return 0;
+  return regd.reduce((max, row) => {
+    const n = Number(row?.linenum);
+    return Number.isFinite(n) && n > max ? n : max;
+  }, 0);
+}
+
+/**
+ * `linenum` for a REPRESENTATIVE row synthesized from `regh` on award exports.
+ * When the registration has accompanying `regd` rows: max(`linenum`) + 1; otherwise `0`.
+ */
+export function linenumForReghRepresentativeExport(
+  regdRowsForRegid: ReadonlyArray<{ linenum?: number | null; firstname?: string | null }>
+): number {
+  const hasAccompanying = regdRowsForRegid.some(
+    (row) => !isRepresentativeRegdFirstname(row.firstname)
+  );
+  if (!hasAccompanying) return 0;
+  return maxRegdLinenum(regdRowsForRegid) + 1;
+}
+
 export const APPROVED_STATUS_VALUES: readonly string[] = [
   'APPROVED',
   APPROVED_REPRESENTATIVE_AND_ACCOMPANYING,
