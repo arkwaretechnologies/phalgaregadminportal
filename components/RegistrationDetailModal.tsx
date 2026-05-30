@@ -18,6 +18,7 @@ import {
   isAwardRepresentativePhaseDbStatus,
   registrationDetailParticipantsSectionTitle,
 } from '@/lib/registration-status';
+import type { DuplicateRegistrationMatch } from '@/lib/participant-duplicates';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -26,6 +27,35 @@ interface RegistrationDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
+}
+
+function duplicateRegistrationUrl(regid: string, confcode: string | null | undefined): string {
+  const params = new URLSearchParams();
+  params.set('search', regid);
+  params.set('openRegid', regid);
+  if (confcode?.trim()) {
+    params.set('confcode', confcode.trim());
+  }
+  return `/dashboard?${params.toString()}`;
+}
+
+function DuplicateColumnSkeleton() {
+  return (
+    <span
+      className="inline-block h-4 w-28 rounded bg-gray-200 animate-pulse"
+      aria-hidden="true"
+    />
+  );
+}
+
+function ActionsColumnSkeleton() {
+  return (
+    <div className="inline-flex items-center gap-2 animate-pulse" aria-hidden="true">
+      <span className="h-5 w-5 rounded bg-gray-200 shrink-0" />
+      <span className="h-4 w-px bg-gray-200 shrink-0" />
+      <span className="h-4 w-24 rounded bg-gray-200" />
+    </div>
+  );
 }
 
 function resolvedRegistrationFee(reg_fee: RegistrationDetail['reg_fee']): number {
@@ -60,6 +90,13 @@ export default function RegistrationDetailModal({
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
 
+  const [duplicatesByLinenum, setDuplicatesByLinenum] = useState<
+    Record<string, DuplicateRegistrationMatch[]>
+  >({});
+  const [duplicatesLoading, setDuplicatesLoading] = useState(false);
+  const [duplicatesError, setDuplicatesError] = useState(false);
+  const [selectedDuplicateRegid, setSelectedDuplicateRegid] = useState<Record<number, string>>({});
+
 
   // Update local registration state when prop changes
   useEffect(() => {
@@ -67,6 +104,61 @@ export default function RegistrationDetailModal({
     setContactEmail(registration.email || '');
     setContactPhone(registration.contactnum || '');
   }, [registration]);
+
+  useEffect(() => {
+    if (!isOpen || !currentRegistration.regid) {
+      setDuplicatesByLinenum({});
+      setDuplicatesLoading(false);
+      setDuplicatesError(false);
+      setSelectedDuplicateRegid({});
+      return;
+    }
+
+    let cancelled = false;
+    setDuplicatesLoading(true);
+    setDuplicatesError(false);
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/registrations/${encodeURIComponent(currentRegistration.regid)}/participant-duplicates`
+        );
+        if (!response.ok) {
+          throw new Error('Failed to fetch participant duplicates');
+        }
+        const data = await response.json();
+        if (cancelled) return;
+
+        const byLinenum = (data.duplicatesByLinenum ?? {}) as Record<
+          string,
+          DuplicateRegistrationMatch[]
+        >;
+        setDuplicatesByLinenum(byLinenum);
+
+        const initialSelection: Record<number, string> = {};
+        for (const [linenum, matches] of Object.entries(byLinenum)) {
+          if (matches.length > 0) {
+            initialSelection[Number(linenum)] = matches[0].regid;
+          }
+        }
+        setSelectedDuplicateRegid(initialSelection);
+      } catch {
+        if (!cancelled) {
+          setDuplicatesError(true);
+          setDuplicatesByLinenum({});
+          setSelectedDuplicateRegid({});
+        }
+      } finally {
+        if (!cancelled) {
+          setDuplicatesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, currentRegistration.regid]);
 
   const openContactEditModal = () => {
     setContactEmail(currentRegistration.email || '');
@@ -316,6 +408,33 @@ export default function RegistrationDetailModal({
   const isAnc = conferenceIsAnc(currentRegistration.is_anc);
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
+  const registrationIsPending = !isApprovedStatus(currentRegistration.status);
+  const hasAnyParticipantDuplicates = Object.values(duplicatesByLinenum).some(
+    (matches) => matches.length > 0
+  );
+  const showActionsColumn =
+    duplicatesLoading ||
+    (registrationIsPending && currentRegistration.status !== 'REJECTED') ||
+    hasAnyParticipantDuplicates;
+
+  const renderDuplicateCell = (linenum: number) => {
+    if (duplicatesLoading) {
+      return <DuplicateColumnSkeleton />;
+    }
+    if (duplicatesError) {
+      return <span className="text-gray-400">—</span>;
+    }
+    const duplicates = duplicatesByLinenum[String(linenum)] ?? [];
+    if (duplicates.length === 0) {
+      return <span className="text-gray-400">—</span>;
+    }
+    if (duplicates.length === 1) {
+      return <span className="text-amber-700">1 possible duplicate</span>;
+    }
+    return (
+      <span className="text-amber-700">{duplicates.length} possible duplicates</span>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -330,7 +449,7 @@ export default function RegistrationDetailModal({
           className={`bg-white rounded-lg shadow-xl w-full min-w-0 max-h-[90vh] overflow-y-auto my-4 sm:my-8 ${
             isAnc
               ? 'max-w-7xl 2xl:max-w-[min(90rem,calc(100vw-2rem))]'
-              : 'max-w-4xl'
+              : 'max-w-7xl'
           }`}
         >
           {/* Header */}
@@ -539,7 +658,12 @@ export default function RegistrationDetailModal({
                             T-Shirt Size
                           </th>
                         )}
-                        {!isApprovedStatus(currentRegistration.status) && (
+                        <th
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                        >
+                          Duplicate
+                        </th>
+                        {showActionsColumn && (
                           <th
                             className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                           >
@@ -598,17 +722,96 @@ export default function RegistrationDetailModal({
                               </span>
                             </td>
                           )}
-                          {!isApprovedStatus(currentRegistration.status) && (
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {renderDuplicateCell(item.linenum)}
+                          </td>
+                          {showActionsColumn && (
                             <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
-                              <button
-                                onClick={() => setParticipantToDelete(item)}
-                                className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
-                                title="Delete participant"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
+                              {duplicatesLoading ? (
+                                <ActionsColumnSkeleton />
+                              ) : (
+                              (() => {
+                                const duplicates = duplicatesByLinenum[String(item.linenum)] ?? [];
+                                const showDuplicateView = duplicates.length > 0;
+                                const showDelete =
+                                  String(currentRegistration.status ?? '').trim().toUpperCase() !==
+                                    'REJECTED' &&
+                                  (registrationIsPending || showDuplicateView);
+
+                                if (!showDelete && !showDuplicateView) {
+                                  return null;
+                                }
+
+                                return (
+                                  <div className="inline-flex flex-wrap items-center gap-2">
+                                    {showDelete && (
+                                      <button
+                                        onClick={() => setParticipantToDelete(item)}
+                                        className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50 shrink-0"
+                                        title="Delete participant"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                    {showDelete && showDuplicateView && (
+                                      <span
+                                        className="h-4 w-px bg-gray-300 shrink-0"
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    {showDuplicateView && duplicates.length === 1 && (
+                                      <a
+                                        href={duplicateRegistrationUrl(
+                                          duplicates[0].regid,
+                                          currentRegistration.confcode
+                                        )}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-amber-600 hover:text-amber-800 text-sm font-medium whitespace-nowrap"
+                                      >
+                                        View duplicate
+                                      </a>
+                                    )}
+                                    {showDuplicateView && duplicates.length > 1 && (
+                                      <>
+                                        <select
+                                          value={
+                                            selectedDuplicateRegid[item.linenum] ?? duplicates[0].regid
+                                          }
+                                          onChange={(e) =>
+                                            setSelectedDuplicateRegid((prev) => ({
+                                              ...prev,
+                                              [item.linenum]: e.target.value,
+                                            }))
+                                          }
+                                          className="text-sm border border-gray-300 rounded-md px-2 py-1 max-w-[12rem] truncate"
+                                          aria-label="Select duplicate registration"
+                                        >
+                                          {duplicates.map((dup) => (
+                                            <option key={dup.regid} value={dup.regid}>
+                                              {dup.regid} ({dup.status ?? '—'})
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <a
+                                          href={duplicateRegistrationUrl(
+                                            selectedDuplicateRegid[item.linenum] ?? duplicates[0].regid,
+                                            currentRegistration.confcode
+                                          )}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-amber-600 hover:text-amber-800 text-sm font-medium whitespace-nowrap"
+                                        >
+                                          View
+                                        </a>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })()
+                              )}
                             </td>
                           )}
                         </tr>

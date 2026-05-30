@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import { groupRegdByDuplicateKey } from '@/lib/participant-duplicates';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -37,11 +38,6 @@ async function fetchAllRecords(
   }
 
   return { data: allData, error: null };
-}
-
-function normalize(s: string | null | undefined): string {
-  if (s == null) return '';
-  return String(s).trim();
 }
 
 export async function GET(request: NextRequest) {
@@ -131,17 +127,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Group by (confcode, lastname, firstname, province, lgu) so we only show duplicates with same LGU and Province
-    const keyToParticipants: Record<string, typeof participantsWithReg> = {};
-    for (const p of participantsWithReg) {
-      const c = normalize(p.confcode);
-      const last = normalize(p.lastname);
-      const first = normalize(p.firstname);
-      const prov = normalize(p.province);
-      const lgu = normalize(p.lgu);
-      const key = `${c}\t${last}\t${first}\t${prov}\t${lgu}`;
-      if (!keyToParticipants[key]) keyToParticipants[key] = [];
-      keyToParticipants[key].push(p);
-    }
+    const keyToParticipants = groupRegdByDuplicateKey(participantsWithReg);
 
     // Keep only groups with count > 1 and build response with original fields
     const groups: Array<{
