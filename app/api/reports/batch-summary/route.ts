@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +56,10 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
+
+    const cacheKey = buildReportCacheKey('batch-summary', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
       'regh',
@@ -156,7 +165,7 @@ export async function GET(request: NextRequest) {
       return (a.t_shirt || '').localeCompare(b.t_shirt || '');
     });
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       rows: summaryRows,
       total: summaryRows.length,
     });

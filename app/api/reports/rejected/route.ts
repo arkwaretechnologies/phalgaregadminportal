@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -46,6 +51,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
     const view = searchParams.get('view') || 'registration'; // 'registration' or 'participant'
+
+    const cacheKey = buildReportCacheKey('rejected', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     // Build query for rejected registrations (no row limit)
     const { data: rejectedRegistrations, error: regError } = await fetchAllRecords(
@@ -116,7 +125,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (view === 'participant') {
-      return NextResponse.json({
+      return storeAndRespondReport(cacheKey, {
         view: 'participant',
         participants: participantsWithRegInfo,
         total: participantsWithRegInfo.length,
@@ -148,7 +157,7 @@ export async function GET(request: NextRequest) {
       participantCount: participantCountMap[reg.regid] || 0,
     }));
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       view: 'registration',
       registrations: registrationsWithCount,
       total: registrationsWithCount.length,

@@ -11,6 +11,7 @@ import {
   APPROVED_STATUS_VALUES,
   countAwardAccompanyingOnly,
 } from '@/lib/registration-status';
+import { invalidateReportCacheForConference } from '@/lib/redis';
 
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
@@ -525,6 +526,12 @@ export async function POST(request: NextRequest) {
         console.error('[API] Exception caught while sending email:', emailError);
         console.error('[API] Email error stack:', emailError instanceof Error ? emailError.stack : 'No stack trace');
       });
+
+    if (updatedRegistration.confcode) {
+      void invalidateReportCacheForConference(String(updatedRegistration.confcode)).catch((err) => {
+        console.warn('[API] Failed to invalidate report cache:', err);
+      });
+    }
 
     return NextResponse.json({ registration: updatedRegistration });
   } catch (error: any) {

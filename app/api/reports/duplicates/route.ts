@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
 import { groupRegdByDuplicateKey } from '@/lib/participant-duplicates';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -55,6 +60,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const cacheKey = buildReportCacheKey('duplicates', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
     // Fetch regh for this conference (optionally filter by status)
     const { data: registrations, error: regError } = await fetchAllRecords(
       'regh',
@@ -79,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     const regids = (registrations || []).map((r: any) => r?.regid).filter((id: any) => id);
     if (regids.length === 0) {
-      return NextResponse.json({ groups: [] });
+      return storeAndRespondReport(cacheKey, { groups: [] });
     }
 
     // Fetch all regd rows for these registrations (chunk .in() to avoid URL length limits)
@@ -181,7 +190,7 @@ export async function GET(request: NextRequest) {
       return (a.lgu ?? '').toLowerCase().localeCompare((b.lgu ?? '').toLowerCase());
     });
 
-    return NextResponse.json({ groups });
+    return storeAndRespondReport(cacheKey, { groups });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

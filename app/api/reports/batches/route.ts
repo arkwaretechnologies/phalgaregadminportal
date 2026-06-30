@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -46,6 +51,10 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
+
+    const cacheKey = buildReportCacheKey('batches', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     // Build query for approved registrations with batch numbers (no row limit)
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
@@ -123,7 +132,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       batches: batchesWithParticipants,
       total: batchesWithParticipants.length,
     });

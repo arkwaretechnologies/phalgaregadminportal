@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseServer } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +73,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const cacheKey = buildReportCacheKey('missing-prc', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
+
     // PostgREST supports OR filters; include empty string and null.
     const { data: rows, error } = await fetchAllRecords(
       supabaseServer,
@@ -93,7 +102,7 @@ export async function GET(request: NextRequest) {
       return String(v).trim() === '';
     });
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       conference: { confcode: conf.confcode, name: conf.name ?? null, is_anc: conf.is_anc ?? null },
       participants,
       total: participants.length,

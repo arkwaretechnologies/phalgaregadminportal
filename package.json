@@ -12,6 +12,7 @@
     "@supabase/supabase-js": "^2.39.0",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
+    "ioredis": "^5.11.1",
     "jose": "^5.2.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",

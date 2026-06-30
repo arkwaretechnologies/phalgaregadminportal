@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -51,8 +56,13 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(['admin', 'reviewer']);
 
-    const confcode = request.nextUrl.searchParams.get('confcode');
-    const statusFilter = request.nextUrl.searchParams.get('status') || 'APPROVED'; // APPROVED | PENDING | ALL
+    const searchParams = request.nextUrl.searchParams;
+    const confcode = searchParams.get('confcode');
+    const statusFilter = searchParams.get('status') || 'APPROVED'; // APPROVED | PENDING | ALL
+
+    const cacheKey = buildReportCacheKey('tshirt-sizes', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     // Fetch all t-shirt size counts (no row limit)
     const { data, error } = await fetchAllRecords(
@@ -103,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     const conferences = Object.values(byConference);
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       conferences,
       total_conferences: conferences.length,
     });

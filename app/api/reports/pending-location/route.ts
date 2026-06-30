@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -56,8 +61,13 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(['admin', 'reviewer']);
 
-    const confcode = request.nextUrl.searchParams.get('confcode');
-    const countBy = request.nextUrl.searchParams.get('countBy') || 'batch'; // 'batch' or 'participant'
+    const searchParams = request.nextUrl.searchParams;
+    const confcode = searchParams.get('confcode');
+    const countBy = searchParams.get('countBy') || 'batch'; // 'batch' or 'participant'
+
+    const cacheKey = buildReportCacheKey('pending-location', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     if (countBy === 'participant') {
       // Count participants from regd table (only for pending registrations)
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (!pendingRegs || pendingRegs.length === 0) {
-        return NextResponse.json({
+        return storeAndRespondReport(cacheKey, {
           provinceData: [],
           lguData: [],
           totalPending: 0,
@@ -148,7 +158,7 @@ export async function GET(request: NextRequest) {
 
       const totalPending = rows.length;
 
-      return NextResponse.json({
+      return storeAndRespondReport(cacheKey, {
         provinceData,
         lguData,
         totalPending,
@@ -215,7 +225,7 @@ export async function GET(request: NextRequest) {
 
     const totalPending = rows.length;
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       provinceData,
       lguData,
       totalPending,

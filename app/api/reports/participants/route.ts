@@ -6,6 +6,11 @@ import {
   APPROVED_STATUS_VALUES,
   isRepresentativeRegdFirstname,
 } from '@/lib/registration-status';
+import {
+  buildReportCacheKey,
+  storeAndRespondReport,
+  tryCachedReportResponse,
+} from '@/lib/redis';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -106,6 +111,10 @@ export async function GET(request: NextRequest) {
     const confcode = searchParams.get('confcode');
 
     const view = searchParams.get('view') || 'participant';
+
+    const cacheKey = buildReportCacheKey('participants', searchParams);
+    const cachedResponse = await tryCachedReportResponse(cacheKey);
+    if (cachedResponse) return cachedResponse;
 
     // Fetch approved registrations (no row limit)
     const { data: approvedRegistrations, error: regError } = await fetchAllRecords(
@@ -236,7 +245,7 @@ export async function GET(request: NextRequest) {
         participantCount: participantCountMap[reg.regid] || 0,
       }));
 
-      return NextResponse.json({
+      return storeAndRespondReport(cacheKey, {
         view: 'registration',
         registrations: registrationsWithCount,
         total: registrationsWithCount.length,
@@ -277,7 +286,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
+    return storeAndRespondReport(cacheKey, {
       view: 'participant',
       participants: participantsWithRegInfo,
       total: participantsWithRegInfo.length,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { invalidateReportCacheForConference } from '@/lib/redis';
 
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,13 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ 
+    if (registration.confcode) {
+      void invalidateReportCacheForConference(String(registration.confcode)).catch((err) => {
+        console.warn('[participant-delete] Failed to invalidate report cache:', err);
+      });
+    }
+
+    return NextResponse.json({
       message: 'Participant deleted successfully',
       regid: registration.regid,
       linenum: linenum
@@ -69,17 +76,17 @@ export async function DELETE(
 async function getRegistrationByRegnum(decodedRegnum: string) {
   const { data: regById, error: errorById } = await supabase
     .from('regh')
-    .select('regid')
+    .select('regid, confcode')
     .eq('regid', decodedRegnum)
     .maybeSingle();
 
   if (!errorById && regById) return regById;
 
-  const batchnum = parseInt(decodedRegnum);
-  if (!isNaN(batchnum) && /^\d+$/.test(decodedRegnum)) {
+  const batchnum = parseInt(decodedRegnum, 10);
+  if (!Number.isNaN(batchnum) && /^\d+$/.test(decodedRegnum)) {
     const { data: regByBatch, error: errorByBatch } = await supabase
       .from('regh')
-      .select('regid')
+      .select('regid, confcode')
       .eq('batchnum', batchnum)
       .maybeSingle();
     if (!errorByBatch && regByBatch) return regByBatch;
@@ -144,6 +151,12 @@ export async function PATCH(
         { error: 'Failed to update t-shirt size' },
         { status: 500 }
       );
+    }
+
+    if (registration.confcode) {
+      void invalidateReportCacheForConference(String(registration.confcode)).catch((err) => {
+        console.warn('[participant-patch] Failed to invalidate report cache:', err);
+      });
     }
 
     return NextResponse.json({
