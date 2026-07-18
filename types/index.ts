@@ -33,6 +33,10 @@ export interface Registration {
   participant_count?: number; // Derived: number of regD rows for this batchnum
   proof_uploaded_at?: string | null; // Timestamp when proof was last uploaded (from upload_notification table)
   last_viewed_at?: string | null; // Timestamp when registration was last viewed by admin (from upload_notification table)
+  /** Admin-only validating flag ('Y' | 'N'); does not change `status`. */
+  is_validating?: string | null;
+  /** Per-conference sequence when is_validating = 'Y'. */
+  validation_no?: number | null;
 }
 
 export interface RegistrationDetail extends Registration {

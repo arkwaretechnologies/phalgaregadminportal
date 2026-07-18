@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const confcode = searchParams.get('confcode');
     const withAttachment = searchParams.get('withAttachment');
+    const onValidation = searchParams.get('onValidation');
 
     let query = supabase
       .from('regh')
@@ -70,6 +71,11 @@ export async function GET(request: NextRequest) {
       } else {
         query = query.eq('status', su);
       }
+    }
+
+    // Filter to registrations currently marked On Validation
+    if (String(onValidation ?? '').trim().toUpperCase() === 'Y') {
+      query = query.eq('is_validating', 'Y');
     }
 
     // Search functionality - search in regh fields
@@ -161,6 +167,10 @@ export async function GET(request: NextRequest) {
         } else {
           additionalQuery = additionalQuery.eq('status', su);
         }
+      }
+
+      if (String(onValidation ?? '').trim().toUpperCase() === 'Y') {
+        additionalQuery = additionalQuery.eq('is_validating', 'Y');
       }
 
       const { data: additionalRegs, error: additionalError } = await additionalQuery;

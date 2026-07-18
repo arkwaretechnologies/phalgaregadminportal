@@ -175,6 +175,7 @@ export default async function DashboardPage({
       initialOpenRegid={openRegid}
       initialHideProvinceLgu={initialHideProvinceLgu}
       initialConferenceIsAward={initialConferenceIsAward}
+      userRole={user.role}
     />
   );
 }

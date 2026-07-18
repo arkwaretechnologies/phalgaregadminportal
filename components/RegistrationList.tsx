@@ -26,6 +26,12 @@ interface RegistrationListProps {
   hideProvinceLgu?: boolean;
   /** When true, pending rows show label APPROVED REPRESENTATIVE ONLY (award conferences only). */
   conferenceIsAward?: boolean;
+  /** Admin and reviewer can view and toggle On Validation. */
+  userRole?: 'admin' | 'reviewer';
+}
+
+function isValidatingFlag(value: string | null | undefined): boolean {
+  return String(value ?? '').trim().toUpperCase() === 'Y';
 }
 
 export default function RegistrationList({
@@ -36,11 +42,13 @@ export default function RegistrationList({
   initialOpenRegid = null,
   hideProvinceLgu = false,
   conferenceIsAward = false,
+  userRole: _userRole = 'reviewer',
 }: RegistrationListProps) {
   const [registrations, setRegistrations] = useState<Registration[]>(initialRegistrations);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [attachmentFilter, setAttachmentFilter] = useState<string>('all');
+  const [validationFilter, setValidationFilter] = useState<'all' | 'validating'>('all');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -48,6 +56,7 @@ export default function RegistrationList({
   const [registrationDetail, setRegistrationDetail] = useState<RegistrationDetail | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(20);
+  const [validationToggleRegid, setValidationToggleRegid] = useState<string | null>(null);
   const [viewLoadingIdentifier, setViewLoadingIdentifier] = useState<string | number | null>(null);
   const [goToPageInput, setGoToPageInput] = useState('');
 
@@ -69,6 +78,9 @@ export default function RegistrationList({
       if (attachmentFilter === 'withFile') {
         params.append('withAttachment', 'true');
       }
+      if (validationFilter === 'validating') {
+        params.append('onValidation', 'Y');
+      }
       if (searchQuery) {
         params.append('search', searchQuery);
       }
@@ -88,7 +100,7 @@ export default function RegistrationList({
     } finally {
       setLoading(false);
     }
-  }, [confcode, statusFilter, attachmentFilter, searchQuery, onRegistrationsChanged]);
+  }, [confcode, statusFilter, attachmentFilter, validationFilter, searchQuery, onRegistrationsChanged]);
 
   // Track the last confcode that was used to fetch data
   const lastConfcodeRef = useRef<string | null | undefined>(confcode);
@@ -97,6 +109,7 @@ export default function RegistrationList({
   // Track previous status filter to detect when it changes
   const prevStatusFilterRef = useRef<string>(statusFilter);
   const prevAttachmentFilterRef = useRef<string>(attachmentFilter);
+  const prevValidationFilterRef = useRef<string>(validationFilter);
 
   // Initialize with server-side data on mount
   useEffect(() => {
@@ -115,22 +128,31 @@ export default function RegistrationList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confcode]);
 
-  // Handle status, attachment, and search filter changes
+  // Handle status, attachment, validation, and search filter changes
   useEffect(() => {
     const wasSearching = prevSearchRef.current !== '';
     const isSearching = searchQuery !== '';
     const statusFilterChanged = prevStatusFilterRef.current !== statusFilter;
     const attachmentFilterChanged = prevAttachmentFilterRef.current !== attachmentFilter;
+    const validationFilterChanged = prevValidationFilterRef.current !== validationFilter;
     prevSearchRef.current = searchQuery;
     prevStatusFilterRef.current = statusFilter;
     prevAttachmentFilterRef.current = attachmentFilter;
+    prevValidationFilterRef.current = validationFilter;
 
-    // Fetch if: status/attachment filter changed, or we're searching, or we just cleared search
-    if (confcode && (statusFilterChanged || attachmentFilterChanged || isSearching || wasSearching)) {
+    // Fetch if: status/attachment/validation filter changed, or we're searching, or we just cleared search
+    if (
+      confcode &&
+      (statusFilterChanged ||
+        attachmentFilterChanged ||
+        validationFilterChanged ||
+        isSearching ||
+        wasSearching)
+    ) {
       fetchRegistrations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, attachmentFilter, searchQuery]);
+  }, [statusFilter, attachmentFilter, validationFilter, searchQuery]);
 
 
   // Calculate pagination
@@ -166,7 +188,18 @@ export default function RegistrationList({
     fetchRegistrations();
   };
 
-  const getStatusBadge = (status: string | null, batchnum?: number | null) => {
+  const getStatusBadge = (
+    status: string | null,
+    batchnum?: number | null,
+    isValidating?: string | null
+  ) => {
+    if (isValidatingFlag(isValidating) && !isApprovedStatus(status) && status !== 'REJECTED') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-sky-100 text-sky-800">
+          Validating
+        </span>
+      );
+    }
     if (conferenceIsAward && isAwardRepresentativePhaseDbStatus(status)) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-900 max-w-xs">
@@ -217,6 +250,74 @@ export default function RegistrationList({
             PENDING
           </span>
         );
+    }
+  };
+
+  const canToggleValidation = (registration: Registration) =>
+    !isApprovedStatus(registration.status) && registration.status !== 'REJECTED';
+
+  const handleToggleValidation = async (registration: Registration, checked: boolean) => {
+    if (!registration.regid || !canToggleValidation(registration)) return;
+
+    const previous = {
+      is_validating: registration.is_validating,
+      validation_no: registration.validation_no,
+    };
+
+    setValidationToggleRegid(registration.regid);
+    setRegistrations((prev) =>
+      prev.map((r) =>
+        r.regid === registration.regid
+          ? {
+              ...r,
+              is_validating: checked ? 'Y' : 'N',
+              validation_no: checked ? r.validation_no : null,
+            }
+          : r
+      )
+    );
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(registration.regid)}/validation`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ on_validation: checked }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update validation');
+      }
+
+      setRegistrations((prev) =>
+        prev.map((r) =>
+          r.regid === registration.regid
+            ? {
+                ...r,
+                is_validating: data.registration?.is_validating ?? (checked ? 'Y' : 'N'),
+                validation_no: data.registration?.validation_no ?? null,
+              }
+            : r
+        )
+      );
+      onRegistrationsChanged?.();
+      if (validationFilter === 'validating') {
+        await fetchRegistrations({ preservePage: true });
+      }
+    } catch (error: any) {
+      setRegistrations((prev) =>
+        prev.map((r) =>
+          r.regid === registration.regid
+            ? { ...r, is_validating: previous.is_validating, validation_no: previous.validation_no }
+            : r
+        )
+      );
+      alert(error?.message || 'Failed to update validation. Please try again.');
+    } finally {
+      setValidationToggleRegid((cur) => (cur === registration.regid ? null : cur));
     }
   };
 
@@ -447,6 +548,34 @@ export default function RegistrationList({
                   </select>
                 </div>
               </div>
+
+              {/* On Validation filter */}
+              <div className="lg:w-64">
+                <label htmlFor="validation" className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Validation
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  <select
+                    id="validation"
+                    value={validationFilter}
+                    onChange={(e) =>
+                      setValidationFilter(e.target.value === 'validating' ? 'validating' : 'all')
+                    }
+                    className="w-full pl-4 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white text-gray-900 font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="all">All</option>
+                    <option value="validating">On Validation</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -500,7 +629,13 @@ export default function RegistrationList({
                         {formatDate(registration.regdate)} • {formatTime(registration.regdate)}
                       </p>
                     </div>
-                    <div className="shrink-0">{getStatusBadge(registration.status, registration.batchnum)}</div>
+                    <div className="shrink-0">
+                      {getStatusBadge(
+                        registration.status,
+                        registration.batchnum,
+                        registration.is_validating
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-2 text-sm">
@@ -528,6 +663,28 @@ export default function RegistrationList({
                       <span className="text-gray-500">Participants</span>
                       <span className="text-gray-900 text-right tabular-nums">
                         {registration.participant_count ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-gray-500">On Validation</span>
+                      <input
+                        type="checkbox"
+                        checked={isValidatingFlag(registration.is_validating)}
+                        disabled={
+                          !canToggleValidation(registration) ||
+                          validationToggleRegid === registration.regid
+                        }
+                        onChange={(e) =>
+                          void handleToggleValidation(registration, e.target.checked)
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
+                        aria-label={`On Validation for ${registration.regid}`}
+                      />
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-gray-500">Validation No.</span>
+                      <span className="text-gray-900 text-right tabular-nums">
+                        {registration.validation_no != null ? registration.validation_no : '—'}
                       </span>
                     </div>
                   </div>
@@ -632,6 +789,12 @@ export default function RegistrationList({
                         Participants
                       </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        On Validation
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Validation No.
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -696,7 +859,31 @@ export default function RegistrationList({
                         </div>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        {getStatusBadge(registration.status, registration.batchnum)}
+                        <input
+                          type="checkbox"
+                          checked={isValidatingFlag(registration.is_validating)}
+                          disabled={
+                            !canToggleValidation(registration) ||
+                            validationToggleRegid === registration.regid
+                          }
+                          onChange={(e) =>
+                            void handleToggleValidation(registration, e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
+                          aria-label={`On Validation for ${registration.regid}`}
+                        />
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 tabular-nums">
+                          {registration.validation_no != null ? registration.validation_no : '—'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {getStatusBadge(
+                          registration.status,
+                          registration.batchnum,
+                          registration.is_validating
+                        )}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">

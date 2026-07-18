@@ -77,6 +77,7 @@ export default function RegistrationsPageClient({
   initialOpenRegid = null,
   initialHideProvinceLgu = false,
   initialConferenceIsAward = false,
+  userRole = 'reviewer',
 }: {
   initialRegistrations: Registration[];
   initialConfcode?: string | null;
@@ -85,6 +86,7 @@ export default function RegistrationsPageClient({
   initialOpenRegid?: string | null;
   initialHideProvinceLgu?: boolean;
   initialConferenceIsAward?: boolean;
+  userRole?: 'admin' | 'reviewer';
 }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [conferences, setConferences] = useState<Conference[]>([]);
@@ -226,6 +228,7 @@ export default function RegistrationsPageClient({
         initialOpenRegid={initialOpenRegid}
         hideProvinceLgu={hideProvinceLgu}
         conferenceIsAward={conferenceIsAward}
+        userRole={userRole}
       />
     </div>
   );
