@@ -66,6 +66,8 @@ export interface RegistrationDetailItem {
   prcnum: string | null;
   expirydate: string | null;
   email: string | null;
+  /** From `regd.non_pork`; may be boolean or Y/N-style text depending on DB. */
+  non_pork?: boolean | string | number | null;
 }
 
 /** Matches `public.conference` (see migrations / Supabase). */

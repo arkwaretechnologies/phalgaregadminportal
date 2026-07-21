@@ -283,6 +283,16 @@ export default function DashboardLayout({
                       <span className="text-sm">T-Shirt Size Summary</span>
                     </Link>
                     <Link
+                      href="/dashboard/reports/non-pork"
+                      className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                        pathname === '/dashboard/reports/non-pork'
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                      }`}
+                    >
+                      <span className="text-sm">Non Pork Participants Summary</span>
+                    </Link>
+                    <Link
                       href="/dashboard/reports/approved-location"
                       className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
                         pathname === '/dashboard/reports/approved-location'
@@ -573,6 +583,17 @@ export default function DashboardLayout({
                     title="T-Shirt Size Summary"
                   >
                     <span className="text-sm">T-Shirt Size Summary</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/reports/non-pork"
+                    className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+                      pathname === '/dashboard/reports/non-pork'
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                    }`}
+                    title="Non Pork Participants Summary"
+                  >
+                    <span className="text-sm">Non Pork Participants Summary</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/approved-location"

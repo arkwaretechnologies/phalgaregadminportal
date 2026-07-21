@@ -6,6 +6,7 @@ import { RegistrationDetail, RegistrationDetailItem } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
+import { isNonPorkFlag } from '@/lib/non-pork';
 import {
   ACCEPTED_AWARD_STATUS,
   APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
@@ -441,6 +442,11 @@ export default function RegistrationDetailClient({
                         T-Shirt Size
                       </th>
                     )}
+                    <th
+                      className={`${participantThPad} text-center text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                    >
+                      Non Pork
+                    </th>
                     {!isApprovedStatus(registration.status) && (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
@@ -500,6 +506,24 @@ export default function RegistrationDetailClient({
                           </span>
                         </td>
                       )}
+                      <td className={`${participantTdPad} whitespace-nowrap text-sm text-center text-gray-500`}>
+                        {isNonPorkFlag(item.non_pork) ? (
+                          <svg
+                            className="w-5 h-5 text-green-600 inline-block"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                            aria-label="Non pork"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
                       {!isApprovedStatus(registration.status) && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
