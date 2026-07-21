@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
 import Pagination from '@/components/Pagination';
+import { isNonPorkFlag } from '@/lib/non-pork';
 
 interface ApprovedRegistration {
   regid: string;
@@ -17,6 +18,7 @@ interface ApprovedRegistration {
   email: string | null;
   regdate: string | null;
   participantCount: number;
+  nonPorkCount: number;
 }
 
 interface Participant {
@@ -256,12 +258,13 @@ export default function ApprovedParticipantsClient({
           'Contact Number': reg.contactnum || 'N/A',
           'Registration Date': formatDate(reg.regdate),
           'Participant Count': reg.participantCount,
+          'Non Pork Count': reg.nonPorkCount ?? 0,
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = [
           { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 },
-          { wch: 30 }, { wch: 18 }, { wch: 30 }, { wch: 18 },
+          { wch: 30 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 14 },
         ];
         XLSX.utils.book_append_sheet(wb, ws, 'Approved Registrations');
         XLSX.writeFile(wb, `${safeConfName}_approved_registrations.xlsx`);
@@ -275,6 +278,7 @@ export default function ApprovedParticipantsClient({
             'Registration ID': p.registration?.regid || 'N/A',
             'Province': p.province || 'N/A',
             'LGU': p.lgu || 'N/A',
+            'Non Pork': isNonPorkFlag(p.non_pork) ? 'Yes' : 'No',
           };
           if (isAncConf) {
             row['Contact No.'] = p.contactnum || 'N/A';
@@ -289,11 +293,11 @@ export default function ApprovedParticipantsClient({
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = isAncConf
           ? [
-              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 },
               { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 30 },
             ]
           : [
-              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 30 },
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 30 },
             ];
         XLSX.utils.book_append_sheet(wb, ws, 'Approved Participants');
         XLSX.writeFile(wb, `${safeConfName}_approved_participants.xlsx`);
@@ -486,7 +490,7 @@ export default function ApprovedParticipantsClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1140px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col style={{ width: '4.5rem' }} />
                 <col style={{ width: '7rem' }} />
@@ -497,6 +501,7 @@ export default function ApprovedParticipantsClient({
                 <col style={{ width: '7.5rem' }} />
                 <col style={{ width: '11rem' }} />
                 <col style={{ width: '6.5rem' }} />
+                <col style={{ width: '5.5rem' }} />
                 <col style={{ width: '10.5rem' }} />
               </colgroup>
               <thead className="bg-gray-50">
@@ -510,6 +515,7 @@ export default function ApprovedParticipantsClient({
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact #</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
                   <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Part.</th>
+                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Non Pork</th>
                   <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                     Actions
                   </th>
@@ -547,6 +553,11 @@ export default function ApprovedParticipantsClient({
                         {reg.participantCount}
                       </span>
                     </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-center">
+                      <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        {reg.nonPorkCount ?? 0}
+                      </span>
+                    </td>
                     <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
                       {reg.regid ? (
                         <a
@@ -581,7 +592,7 @@ export default function ApprovedParticipantsClient({
         /* ── Participants Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1040px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col />
                 <col style={{ width: '8rem' }} />
@@ -589,6 +600,7 @@ export default function ApprovedParticipantsClient({
                 <col style={{ width: '7rem' }} />
                 <col style={{ width: '8rem' }} />
                 <col style={{ width: '8rem' }} />
+                <col style={{ width: '5.5rem' }} />
                 <col style={{ width: '11rem' }} />
                 <col style={{ width: '10.5rem' }} />
               </colgroup>
@@ -600,6 +612,7 @@ export default function ApprovedParticipantsClient({
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration ID</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Province</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LGU</th>
+                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Non Pork</th>
                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration Date</th>
                   <th className="sticky right-0 z-20 px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l border-gray-200 bg-gray-50 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                     Actions
@@ -628,6 +641,24 @@ export default function ApprovedParticipantsClient({
                       <span className="block truncate" title={p.lgu || undefined}>
                         {p.lgu || 'N/A'}
                       </span>
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm text-center text-gray-500">
+                      {isNonPorkFlag(p.non_pork) ? (
+                        <svg
+                          className="w-5 h-5 text-green-600 inline-block"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          aria-label="Non pork"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 tabular-nums">{formatDate(p.registration?.regdate ?? null)}</td>
                     <td className="sticky right-0 z-10 px-2 py-2 whitespace-nowrap text-sm text-center border-l border-gray-100 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
