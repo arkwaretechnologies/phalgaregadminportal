@@ -490,19 +490,19 @@ export default function ApprovedParticipantsClient({
         /* ── Registrations Table ── */
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1140px] table-fixed divide-y divide-gray-200">
+            <table className="w-full min-w-[1288px] table-fixed divide-y divide-gray-200">
               <colgroup>
                 <col style={{ width: '4.5rem' }} />
                 <col style={{ width: '7rem' }} />
-                <col />
-                <col style={{ width: '8rem' }} />
-                <col style={{ width: '8rem' }} />
-                <col style={{ width: '12rem' }} />
-                <col style={{ width: '7.5rem' }} />
-                <col style={{ width: '11rem' }} />
+                <col style={{ width: '9rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col style={{ width: '10rem' }} />
                 <col style={{ width: '6.5rem' }} />
-                <col style={{ width: '5.5rem' }} />
-                <col style={{ width: '10.5rem' }} />
+                <col style={{ width: '10rem' }} />
+                <col style={{ width: '5rem' }} />
+                <col style={{ width: '5rem' }} />
+                <col style={{ width: '9.5rem' }} />
               </colgroup>
               <thead className="bg-gray-50">
                 <tr>
