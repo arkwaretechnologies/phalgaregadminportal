@@ -6,7 +6,6 @@ import {
   APPROVED_STATUS_VALUES,
   isRepresentativeRegdFirstname,
 } from '@/lib/registration-status';
-import { isNonPorkFlag } from '@/lib/non-pork';
 import {
   buildReportCacheKey,
   storeAndRespondReport,
@@ -226,14 +225,10 @@ export async function GET(request: NextRequest) {
 
     if (view === 'registration') {
       const participantCountMap: Record<string, number> = {};
-      const nonPorkCountMap: Record<string, number> = {};
       allParticipants.forEach((p: any) => {
         const regid = p.regid;
         if (regid) {
           participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
-          if (isNonPorkFlag(p.non_pork)) {
-            nonPorkCountMap[regid] = (nonPorkCountMap[regid] || 0) + 1;
-          }
         }
       });
 
@@ -248,7 +243,6 @@ export async function GET(request: NextRequest) {
         email: reg.email,
         regdate: reg.regdate,
         participantCount: participantCountMap[reg.regid] || 0,
-        nonPorkCount: nonPorkCountMap[reg.regid] || 0,
       }));
 
       return storeAndRespondReport(cacheKey, {

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Conference, User } from '@/types';
-import NonPorkReportClient from './NonPorkReportClient';
+import FoodPreferenceReportClient from './FoodPreferenceReportClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,10 +69,10 @@ async function getUserDefaultConference(userId: number): Promise<string | null> 
   }
 }
 
-export default async function NonPorkReportPage({
+export default async function FoodPreferenceReportPage({
   searchParams,
 }: {
-  searchParams?: { confcode?: string; status?: string };
+  searchParams?: { confcode?: string; status?: string; preference?: string };
 }) {
   const user = await getSession();
 
@@ -99,11 +99,18 @@ export default async function NonPorkReportPage({
       ? searchParams.status
       : 'APPROVED';
 
+  const preferenceRaw = String(searchParams?.preference ?? 'ALL').trim().toUpperCase();
+  const initialPreference =
+    preferenceRaw === 'ANY_DISH' || preferenceRaw === 'NON_PORK' || preferenceRaw === 'ALL'
+      ? preferenceRaw
+      : 'ALL';
+
   return (
-    <NonPorkReportClient
+    <FoodPreferenceReportClient
       initialConferences={conferences}
       initialConfcode={confcode}
       initialStatus={initialStatus}
+      initialPreference={initialPreference}
     />
   );
 }

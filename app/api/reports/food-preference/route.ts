@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { APPROVED_STATUS_VALUES } from '@/lib/registration-status';
-import { isNonPorkFlag } from '@/lib/non-pork';
+import { matchesFoodPreferenceFilter } from '@/lib/food-preference';
+import type { FoodPreferenceKind } from '@/lib/food-preference';
 import {
   buildReportCacheKey,
   storeAndRespondReport,
@@ -12,6 +13,15 @@ import {
 export const dynamic = 'force-dynamic';
 
 const REGID_CHUNK = 120;
+const PREFERENCE_FILTERS: FoodPreferenceKind[] = ['ALL', 'ANY_DISH', 'NON_PORK'];
+
+function parsePreferenceFilter(raw: string | null): FoodPreferenceKind {
+  const value = String(raw ?? 'ALL').trim().toUpperCase();
+  if (PREFERENCE_FILTERS.includes(value as FoodPreferenceKind)) {
+    return value as FoodPreferenceKind;
+  }
+  return 'ALL';
+}
 
 async function fetchAllRecords(
   table: string,
@@ -71,7 +81,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const confcode = searchParams.get('confcode');
     const statusFilter = (searchParams.get('status') || 'APPROVED').toUpperCase();
-    const view = searchParams.get('view') || 'registration';
+    const preferenceFilter = parsePreferenceFilter(searchParams.get('preference'));
+    const view = searchParams.get('view') || 'participant';
 
     if (!['PENDING', 'APPROVED', 'ALL'].includes(statusFilter)) {
       return NextResponse.json(
@@ -80,7 +91,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cacheKey = buildReportCacheKey('non-pork', searchParams);
+    const cacheKey = buildReportCacheKey('food-preference', searchParams);
     const cachedResponse = await tryCachedReportResponse(cacheKey);
     if (cachedResponse) return cachedResponse;
 
@@ -100,7 +111,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (regError) {
-      console.error('Error fetching registrations for non-pork report:', regError);
+      console.error('Error fetching registrations for food-preference report:', regError);
       return NextResponse.json(
         { error: 'Failed to fetch registrations' },
         { status: 500 }
@@ -114,7 +125,7 @@ export async function GET(request: NextRequest) {
     if (regids.length > 0) {
       const { data: regdRows, error: regdError } = await fetchRegdForRegids(regids);
       if (regdError) {
-        console.error('Error fetching participants for non-pork report:', regdError);
+        console.error('Error fetching participants for food-preference report:', regdError);
         return NextResponse.json(
           { error: 'Failed to fetch participants' },
           { status: 500 }
@@ -123,26 +134,30 @@ export async function GET(request: NextRequest) {
       allRegd = regdRows || [];
     }
 
-    const nonPorkByRegid: Record<string, number> = {};
+    const foodPreferenceByRegid: Record<string, number> = {};
     const totalByRegid: Record<string, number> = {};
 
     allRegd.forEach((p: any) => {
       const regid = p.regid;
       if (!regid) return;
       totalByRegid[regid] = (totalByRegid[regid] || 0) + 1;
-      if (isNonPorkFlag(p.non_pork)) {
-        nonPorkByRegid[regid] = (nonPorkByRegid[regid] || 0) + 1;
+      if (matchesFoodPreferenceFilter(p.food_preference, preferenceFilter)) {
+        foodPreferenceByRegid[regid] = (foodPreferenceByRegid[regid] || 0) + 1;
       }
     });
 
-    const nonPorkParticipants = allRegd.filter((p: any) => isNonPorkFlag(p.non_pork));
-    const regsWithNonPork = registrations.filter((r: any) => (nonPorkByRegid[r.regid] || 0) > 0);
+    const foodPreferenceParticipants = allRegd.filter((p: any) =>
+      matchesFoodPreferenceFilter(p.food_preference, preferenceFilter)
+    );
+    const regsWithFoodPreference = registrations.filter(
+      (r: any) => (foodPreferenceByRegid[r.regid] || 0) > 0
+    );
 
-    const totalRegistrations = regsWithNonPork.length;
-    const totalNonPorkParticipants = nonPorkParticipants.length;
+    const totalRegistrations = regsWithFoodPreference.length;
+    const totalFoodPreferenceParticipants = foodPreferenceParticipants.length;
 
     if (view === 'participant') {
-      const participantsWithRegInfo = nonPorkParticipants.map((participant: any) => {
+      const participantsWithRegInfo = foodPreferenceParticipants.map((participant: any) => {
         const registration = registrations.find((r: any) => r.regid === participant.regid);
         return {
           ...participant,
@@ -167,11 +182,11 @@ export async function GET(request: NextRequest) {
         participants: participantsWithRegInfo,
         total: participantsWithRegInfo.length,
         totalRegistrations,
-        totalNonPorkParticipants,
+        totalFoodPreferenceParticipants,
       });
     }
 
-    const registrationsWithCount = regsWithNonPork.map((reg: any) => ({
+    const registrationsWithCount = regsWithFoodPreference.map((reg: any) => ({
       regid: reg.regid,
       confcode: reg.confcode,
       status: reg.status,
@@ -181,7 +196,7 @@ export async function GET(request: NextRequest) {
       contactnum: reg.contactnum,
       email: reg.email,
       regdate: reg.regdate,
-      nonPorkCount: nonPorkByRegid[reg.regid] || 0,
+      foodPreferenceCount: foodPreferenceByRegid[reg.regid] || 0,
       participantCount: totalByRegid[reg.regid] || 0,
     }));
 
@@ -190,7 +205,7 @@ export async function GET(request: NextRequest) {
       registrations: registrationsWithCount,
       total: registrationsWithCount.length,
       totalRegistrations,
-      totalNonPorkParticipants,
+      totalFoodPreferenceParticipants,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
@@ -199,7 +214,7 @@ export async function GET(request: NextRequest) {
     if (error.message === 'Forbidden') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    console.error('Error fetching non-pork report:', error);
+    console.error('Error fetching food-preference report:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

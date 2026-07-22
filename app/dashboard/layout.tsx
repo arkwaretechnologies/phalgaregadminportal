@@ -283,14 +283,14 @@ export default function DashboardLayout({
                       <span className="text-sm">T-Shirt Size Summary</span>
                     </Link>
                     <Link
-                      href="/dashboard/reports/non-pork"
+                      href="/dashboard/reports/food-preference"
                       className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                        pathname === '/dashboard/reports/non-pork'
+                        pathname === '/dashboard/reports/food-preference'
                           ? 'bg-gray-800 text-white'
                           : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                       }`}
                     >
-                      <span className="text-sm">Non Pork Participants Summary</span>
+                      <span className="text-sm">Food Preference Report</span>
                     </Link>
                     <Link
                       href="/dashboard/reports/approved-location"
@@ -585,15 +585,15 @@ export default function DashboardLayout({
                     <span className="text-sm">T-Shirt Size Summary</span>
                   </Link>
                   <Link
-                    href="/dashboard/reports/non-pork"
+                    href="/dashboard/reports/food-preference"
                     className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 ${
-                      pathname === '/dashboard/reports/non-pork'
+                      pathname === '/dashboard/reports/food-preference'
                         ? 'bg-gray-800 text-white'
                         : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                     }`}
-                    title="Non Pork Participants Summary"
+                    title="Food Preference Report"
                   >
-                    <span className="text-sm">Non Pork Participants Summary</span>
+                    <span className="text-sm">Food Preference Report</span>
                   </Link>
                   <Link
                     href="/dashboard/reports/approved-location"

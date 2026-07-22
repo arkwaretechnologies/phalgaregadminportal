@@ -19,7 +19,7 @@ import {
   registrationDetailParticipantsSectionTitle,
 } from '@/lib/registration-status';
 import type { DuplicateRegistrationMatch } from '@/lib/participant-duplicates';
-import { isNonPorkFlag } from '@/lib/non-pork';
+import { formatFoodPreference } from '@/lib/food-preference';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
@@ -660,9 +660,9 @@ export default function RegistrationDetailModal({
                           </th>
                         )}
                         <th
-                          className={`${participantThPad} text-center text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                         >
-                          Non Pork
+                          Food Preference
                         </th>
                         <th
                           className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
@@ -728,21 +728,8 @@ export default function RegistrationDetailModal({
                               </span>
                             </td>
                           )}
-                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-center text-gray-500`}>
-                            {isNonPorkFlag(item.non_pork) ? (
-                              <svg
-                                className="w-5 h-5 text-green-600 inline-block"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                                aria-label="Non pork"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            ) : (
+                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                            {formatFoodPreference(item.food_preference) ?? (
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
