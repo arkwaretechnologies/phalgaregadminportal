@@ -289,6 +289,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
+    if (statusUpper === 'APPROVED') {
+      const onValidation =
+        String(existingRegs.is_validating ?? '').trim().toUpperCase() === 'Y';
+      if (!onValidation) {
+        return NextResponse.json(
+          { error: 'Cannot approve registration if not on validation' },
+          { status: 400 }
+        );
+      }
+    }
+
     let accompanyingCount = 0;
     if (existingRegs.regid) {
       const { data: regdRows } = await supabase
