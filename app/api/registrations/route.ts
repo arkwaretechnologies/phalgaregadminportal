@@ -55,8 +55,14 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('regh')
-      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
-      .order('regdate', { ascending: false });
+      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)');
+
+    const filterOnValidation = String(onValidation ?? '').trim().toUpperCase() === 'Y';
+    if (filterOnValidation) {
+      query = query.order('validation_no', { ascending: true });
+    } else {
+      query = query.order('regdate', { ascending: false });
+    }
 
     // Filter by conference code
     if (confcode) {
@@ -74,7 +80,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter to registrations currently marked On Validation
-    if (String(onValidation ?? '').trim().toUpperCase() === 'Y') {
+    if (filterOnValidation) {
       query = query.eq('is_validating', 'Y');
     }
 
@@ -156,8 +162,13 @@ export async function GET(request: NextRequest) {
       let additionalQuery = supabase
         .from('regh')
         .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
-        .in('regid', additionalRegids)
-        .order('regdate', { ascending: false });
+        .in('regid', additionalRegids);
+
+      if (filterOnValidation) {
+        additionalQuery = additionalQuery.order('validation_no', { ascending: true });
+      } else {
+        additionalQuery = additionalQuery.order('regdate', { ascending: false });
+      }
 
       // Apply status filter if specified
       if (status && status !== 'all') {
@@ -169,7 +180,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      if (String(onValidation ?? '').trim().toUpperCase() === 'Y') {
+      if (filterOnValidation) {
         additionalQuery = additionalQuery.eq('is_validating', 'Y');
       }
 
@@ -178,6 +189,17 @@ export async function GET(request: NextRequest) {
       if (!additionalError && additionalRegs) {
         allRegistrations = [...allRegistrations, ...additionalRegs];
       }
+    }
+
+    if (filterOnValidation && allRegistrations.length > 1) {
+      allRegistrations = [...allRegistrations].sort((a: any, b: any) => {
+        const va = a.validation_no;
+        const vb = b.validation_no;
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return Number(va) - Number(vb);
+      });
     }
 
     if (error) {
