@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RegistrationDetail, RegistrationDetailItem } from '@/types';
+import { RegistrationDetail, RegistrationDetailItem, Position } from '@/types';
 import ApprovalModal from './ApprovalModal';
 import CountdownTimer from './CountdownTimer';
 import PaymentProofViewer from './PaymentProofViewer';
@@ -82,6 +82,18 @@ export default function RegistrationDetailModal({
   const [tshirtEditValue, setTshirtEditValue] = useState('');
   const [tshirtSaving, setTshirtSaving] = useState(false);
   const [tshirtError, setTshirtError] = useState('');
+
+  // Name / designation edit state
+  const [participantToEditName, setParticipantToEditName] = useState<RegistrationDetailItem | null>(null);
+  const [nameEditLastname, setNameEditLastname] = useState('');
+  const [nameEditFirstname, setNameEditFirstname] = useState('');
+  const [nameEditMiddleinit, setNameEditMiddleinit] = useState('');
+  const [nameEditSuffix, setNameEditSuffix] = useState('');
+  const [nameEditDesignation, setNameEditDesignation] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
 
   // Contact edit state
   const [showContactEditModal, setShowContactEditModal] = useState(false);
@@ -397,6 +409,103 @@ export default function RegistrationDetailModal({
     }
   };
 
+  const openNameEdit = async (item: RegistrationDetailItem) => {
+    setParticipantToEditName(item);
+    setNameEditLastname((item.lastname ?? '').toUpperCase());
+    setNameEditFirstname((item.firstname ?? '').toUpperCase());
+    setNameEditMiddleinit((item.middleinit ?? '').toUpperCase());
+    setNameEditSuffix((item.suffix ?? '').toUpperCase());
+    setNameEditDesignation((item.designation ?? '').toUpperCase());
+    setNameError('');
+
+    if (positions.length === 0) {
+      setPositionsLoading(true);
+      try {
+        const response = await fetch('/api/positions');
+        const data = await response.json();
+        if (response.ok) {
+          setPositions(data.positions || []);
+        } else {
+          setNameError(data.error || 'Failed to load designations');
+        }
+      } catch {
+        setNameError('Failed to load designations');
+      } finally {
+        setPositionsLoading(false);
+      }
+    }
+  };
+
+  const closeNameEdit = () => {
+    setParticipantToEditName(null);
+    setNameError('');
+  };
+
+  const handleSaveName = async () => {
+    if (!participantToEditName) return;
+
+    const lastname = nameEditLastname.trim().toUpperCase();
+    const firstname = nameEditFirstname.trim().toUpperCase();
+    const designation = nameEditDesignation.trim().toUpperCase();
+
+    if (!lastname) {
+      setNameError('Last name is required');
+      return;
+    }
+    if (!firstname) {
+      setNameError('First name is required');
+      return;
+    }
+    if (!designation) {
+      setNameError('Designation is required');
+      return;
+    }
+
+    setNameSaving(true);
+    setNameError('');
+
+    const updates = {
+      lastname,
+      firstname,
+      middleinit: nameEditMiddleinit.trim().toUpperCase() || null,
+      suffix: nameEditSuffix.trim().toUpperCase() || null,
+      designation,
+    };
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}/participants/${participantToEditName.linenum}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setNameError(data.error || 'Failed to update name and designation');
+        setNameSaving(false);
+        return;
+      }
+
+      setCurrentRegistration((prev) => ({
+        ...prev,
+        regd: prev.regd?.map((p) =>
+          p.linenum === participantToEditName.linenum ? { ...p, ...updates } : p
+        ),
+      }));
+
+      closeNameEdit();
+      setNameSaving(false);
+      onUpdate();
+    } catch (err) {
+      setNameError('An error occurred. Please try again.');
+      setNameSaving(false);
+    }
+  };
+
   const registrationFeePerParticipant = resolvedRegistrationFee(currentRegistration.reg_fee);
   const awardAccompanyingCount = countAwardAccompanyingOnly(currentRegistration.regd);
   const billableParticipantCount = conferenceIsAward(currentRegistration.is_award)
@@ -684,7 +793,19 @@ export default function RegistrationDetailModal({
                           <td
                             className={`${participantTdPad} whitespace-nowrap text-sm font-medium text-gray-900`}
                           >
-                            {item.lastname}, {item.firstname} {item.middleinit || ''}
+                            <span className="inline-flex items-center gap-1.5">
+                              {item.lastname}, {item.firstname} {item.middleinit || ''}
+                              <button
+                                type="button"
+                                onClick={() => openNameEdit(item)}
+                                className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                title="Edit name and designation"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </span>
                           </td>
                           <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                             {item.designation || 'N/A'}
@@ -976,6 +1097,133 @@ export default function RegistrationDetailModal({
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
               >
                 {tshirtSaving ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span>Save</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Name & Designation Modal */}
+      {participantToEditName && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Edit Name &amp; Designation
+            </h2>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label htmlFor="name-edit-lastname" className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="name-edit-lastname"
+                  type="text"
+                  value={nameEditLastname}
+                  onChange={(e) => setNameEditLastname(e.target.value.toUpperCase())}
+                  disabled={nameSaving}
+                  required
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="name-edit-firstname" className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="name-edit-firstname"
+                  type="text"
+                  value={nameEditFirstname}
+                  onChange={(e) => setNameEditFirstname(e.target.value.toUpperCase())}
+                  disabled={nameSaving}
+                  required
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="name-edit-middleinit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Middle Initial
+                  </label>
+                  <input
+                    id="name-edit-middleinit"
+                    type="text"
+                    value={nameEditMiddleinit}
+                    onChange={(e) => setNameEditMiddleinit(e.target.value.toUpperCase())}
+                    disabled={nameSaving}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="name-edit-suffix" className="block text-sm font-medium text-gray-700 mb-1">
+                    Suffix
+                  </label>
+                  <input
+                    id="name-edit-suffix"
+                    type="text"
+                    value={nameEditSuffix}
+                    onChange={(e) => setNameEditSuffix(e.target.value.toUpperCase())}
+                    disabled={nameSaving}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="name-edit-designation" className="block text-sm font-medium text-gray-700 mb-1">
+                  Designation <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="name-edit-designation"
+                  value={nameEditDesignation}
+                  onChange={(e) => setNameEditDesignation(e.target.value.toUpperCase())}
+                  disabled={nameSaving || positionsLoading}
+                  required
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="">
+                    {positionsLoading ? 'Loading designations…' : 'Select designation'}
+                  </option>
+                  {(() => {
+                    const options = positions.map((p) => p.name.toUpperCase());
+                    if (nameEditDesignation && !options.includes(nameEditDesignation)) {
+                      options.unshift(nameEditDesignation);
+                    }
+                    return options.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+            {nameError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{nameError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={closeNameEdit}
+                disabled={nameSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveName}
+                disabled={nameSaving || positionsLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {nameSaving ? (
                   <>
                     <LoadingSpinner />
                     <span>Saving…</span>

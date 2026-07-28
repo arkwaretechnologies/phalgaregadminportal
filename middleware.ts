@@ -83,10 +83,13 @@ export async function middleware(request: NextRequest) {
       }
 
       // Check role-based access for admin-only API routes
-      // Note: /api/conferences GET allows reviewers, only POST/PUT/DELETE are admin-only (handled in API route)
+      // Note: /api/conferences and /api/positions GET allow reviewers; writes are admin-only (handled in API routes)
+      if (pathname.startsWith('/api/users') && payload.role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
       if (
-        (pathname.startsWith('/api/users') ||
-         pathname.startsWith('/api/positions')) &&
+        pathname.startsWith('/api/positions') &&
+        request.method !== 'GET' &&
         payload.role !== 'admin'
       ) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

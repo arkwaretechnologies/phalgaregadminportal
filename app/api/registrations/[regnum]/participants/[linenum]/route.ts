@@ -119,14 +119,72 @@ export async function PATCH(
       );
     }
 
-    const { tshirtsize } = body as { tshirtsize?: string | null };
-    const value = tshirtsize === undefined
-      ? undefined
-      : (tshirtsize === null || tshirtsize === '' ? null : String(tshirtsize).trim());
+    const uppercaseFields = new Set([
+      'lastname',
+      'firstname',
+      'middleinit',
+      'suffix',
+      'designation',
+    ]);
 
-    if (value === undefined) {
+    const normalizeOptionalString = (
+      raw: unknown,
+      uppercase = false
+    ): string | null | undefined => {
+      if (raw === undefined) return undefined;
+      if (raw === null) return null;
+      const trimmed = String(raw).trim();
+      if (trimmed === '') return null;
+      return uppercase ? trimmed.toUpperCase() : trimmed;
+    };
+
+    const updates: Record<string, string | null> = {};
+    const fields = [
+      'tshirtsize',
+      'lastname',
+      'firstname',
+      'middleinit',
+      'suffix',
+      'designation',
+    ] as const;
+
+    for (const field of fields) {
+      if (!(field in body)) continue;
+      const value = normalizeOptionalString(
+        (body as Record<string, unknown>)[field],
+        uppercaseFields.has(field)
+      );
+      if (value !== undefined) {
+        updates[field] = value;
+      }
+    }
+
+    const isNameUpdate = [
+      'lastname',
+      'firstname',
+      'middleinit',
+      'suffix',
+      'designation',
+    ].some((field) => field in body);
+
+    if (isNameUpdate) {
+      if (!updates.lastname) {
+        return NextResponse.json({ error: 'Last name is required' }, { status: 400 });
+      }
+      if (!updates.firstname) {
+        return NextResponse.json({ error: 'First name is required' }, { status: 400 });
+      }
+      if (!updates.designation) {
+        return NextResponse.json({ error: 'Designation is required' }, { status: 400 });
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { error: 'tshirtsize is required' },
+        {
+          error:
+            'At least one of tshirtsize, lastname, firstname, middleinit, suffix, or designation is required',
+        },
         { status: 400 }
       );
     }
@@ -141,14 +199,14 @@ export async function PATCH(
 
     const { error: updateError } = await supabase
       .from('regd')
-      .update({ tshirtsize: value })
+      .update(updates)
       .eq('regid', registration.regid)
       .eq('linenum', linenum);
 
     if (updateError) {
-      console.error('Error updating participant t-shirt size:', updateError);
+      console.error('Error updating participant:', updateError);
       return NextResponse.json(
-        { error: 'Failed to update t-shirt size' },
+        { error: 'Failed to update participant' },
         { status: 500 }
       );
     }
@@ -160,10 +218,10 @@ export async function PATCH(
     }
 
     return NextResponse.json({
-      message: 'T-shirt size updated successfully',
+      message: 'Participant updated successfully',
       regid: registration.regid,
       linenum,
-      tshirtsize: value,
+      ...updates,
     });
   } catch (error: any) {
     if (error.message === 'Unauthorized') {

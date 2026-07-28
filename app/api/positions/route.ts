@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    await requireAuth(['admin']);
+    await requireAuth(['admin', 'reviewer']);
 
     const { data, error } = await supabase
       .from('positions')
