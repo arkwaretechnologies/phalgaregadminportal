@@ -21,6 +21,10 @@ import {
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
+function isValidatingFlag(value: string | null | undefined): boolean {
+  return String(value ?? '').trim().toUpperCase() === 'Y';
+}
+
 interface RegistrationDetailClientProps {
   registration: RegistrationDetail;
 }
@@ -75,6 +79,8 @@ export default function RegistrationDetailClient({
   const [contactEditNum, setContactEditNum] = useState('');
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState('');
+  const [validationSaving, setValidationSaving] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
@@ -330,6 +336,38 @@ export default function RegistrationDetailClient({
     }
   };
 
+  const canToggleValidation = () =>
+    !isApprovedStatus(registration.status) && registration.status !== 'REJECTED';
+
+  const handleToggleValidation = async (checked: boolean) => {
+    if (!registration.regid || !canToggleValidation()) return;
+
+    setValidationSaving(true);
+    setValidationError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(registration.regid)}/validation`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ on_validation: checked }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update validation');
+      }
+
+      router.refresh();
+    } catch (error: any) {
+      setValidationError(error?.message || 'Failed to update validation. Please try again.');
+    } finally {
+      setValidationSaving(false);
+    }
+  };
+
   return (
     <>
       <div className={isAnc ? 'w-full min-w-0 max-w-7xl 2xl:max-w-[min(90rem,100%)] mx-auto' : 'w-full min-w-0'}>
@@ -413,6 +451,26 @@ export default function RegistrationDetailClient({
             <div>
               <p className="text-sm text-gray-500 mb-1">Email</p>
               <p className="text-base font-medium">{registration.email || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">On Validation</p>
+              <input
+                type="checkbox"
+                checked={isValidatingFlag(registration.is_validating)}
+                disabled={!canToggleValidation() || validationSaving}
+                onChange={(e) => void handleToggleValidation(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
+                aria-label={`On Validation for ${registration.regid}`}
+              />
+              {validationError && (
+                <p className="text-sm text-red-600">{validationError}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Validation No.</p>
+              <p className="text-base font-medium tabular-nums">
+                {registration.validation_no != null ? registration.validation_no : '—'}
+              </p>
             </div>
             {registration.confcode && (
               <div>

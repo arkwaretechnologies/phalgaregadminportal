@@ -23,6 +23,10 @@ import { formatFoodPreference } from '@/lib/food-preference';
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '5XL', '8XL'] as const;
 
+function isValidatingFlag(value: string | null | undefined): boolean {
+  return String(value ?? '').trim().toUpperCase() === 'Y';
+}
+
 interface RegistrationDetailModalProps {
   registration: RegistrationDetail;
   isOpen: boolean;
@@ -102,6 +106,8 @@ export default function RegistrationDetailModal({
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState('');
   const [contactSuccess, setContactSuccess] = useState('');
+  const [validationSaving, setValidationSaving] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   const [duplicatesByLinenum, setDuplicatesByLinenum] = useState<
     Record<string, DuplicateRegistrationMatch[]>
@@ -116,6 +122,7 @@ export default function RegistrationDetailModal({
     setCurrentRegistration(registration);
     setContactEmail(registration.email || '');
     setContactPhone(registration.contactnum || '');
+    setValidationError('');
   }, [registration]);
 
   useEffect(() => {
@@ -185,6 +192,58 @@ export default function RegistrationDetailModal({
     setShowContactEditModal(false);
     setContactError('');
     setContactSuccess('');
+  };
+
+  const canToggleValidation = (item: RegistrationDetail) =>
+    !isApprovedStatus(item.status) && item.status !== 'REJECTED';
+
+  const handleToggleValidation = async (checked: boolean) => {
+    if (!currentRegistration.regid || !canToggleValidation(currentRegistration)) return;
+
+    const previous = {
+      is_validating: currentRegistration.is_validating,
+      validation_no: currentRegistration.validation_no,
+    };
+
+    setValidationSaving(true);
+    setValidationError('');
+    setCurrentRegistration((prev) => ({
+      ...prev,
+      is_validating: checked ? 'Y' : 'N',
+      validation_no: checked ? prev.validation_no : null,
+    }));
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}/validation`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ on_validation: checked }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update validation');
+      }
+
+      setCurrentRegistration((prev) => ({
+        ...prev,
+        is_validating: data.registration?.is_validating ?? (checked ? 'Y' : 'N'),
+        validation_no: data.registration?.validation_no ?? null,
+      }));
+      onUpdate();
+    } catch (error: any) {
+      setCurrentRegistration((prev) => ({
+        ...prev,
+        is_validating: previous.is_validating,
+        validation_no: previous.validation_no,
+      }));
+      setValidationError(error?.message || 'Failed to update validation. Please try again.');
+    } finally {
+      setValidationSaving(false);
+    }
   };
 
   const handleSaveContactDetails = async (e: React.FormEvent) => {
@@ -672,6 +731,26 @@ export default function RegistrationDetailModal({
                     </button>
                   </div>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">On Validation</p>
+                  <input
+                    type="checkbox"
+                    checked={isValidatingFlag(currentRegistration.is_validating)}
+                    disabled={!canToggleValidation(currentRegistration) || validationSaving}
+                    onChange={(e) => void handleToggleValidation(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500 disabled:opacity-50"
+                    aria-label={`On Validation for ${currentRegistration.regid}`}
+                  />
+                  {validationError && (
+                    <p className="text-sm text-red-600">{validationError}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Validation No.</p>
+                  <p className="text-base font-medium text-gray-900 tabular-nums">
+                    {currentRegistration.validation_no != null ? currentRegistration.validation_no : '—'}
+                  </p>
                 </div>
                 {currentRegistration.confcode && (
                   <div>
