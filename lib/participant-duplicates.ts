@@ -26,6 +26,13 @@ export type DuplicateRegistrationMatch = {
   regdate: string | null;
 };
 
+/** PENDING / APPROVED (and award variants) are comparable; REJECTED is never a duplicate match. */
+export function isDuplicateComparableStatus(status: string | null | undefined): boolean {
+  const s = String(status ?? '').trim().toUpperCase();
+  if (s === 'REJECTED') return false;
+  return true;
+}
+
 export type RegdWithRegistration = ParticipantDuplicateFields & {
   regid?: string | null;
   linenum?: number | null;
@@ -51,6 +58,7 @@ export function groupRegdByDuplicateKey<T extends ParticipantDuplicateFields>(
 /**
  * For each participant row on the current registration, find matching participants
  * on other registrations (same conference, name, province, LGU).
+ * Only PENDING/APPROVED (non-REJECTED) registrations are considered.
  */
 export function buildParticipantDuplicateMap(
   currentRegid: string,
@@ -63,6 +71,7 @@ export function buildParticipantDuplicateMap(
   for (const row of allConferenceRegdWithReg) {
     const regid = String(row.regid ?? row.registration?.regid ?? '').trim();
     if (!regid || regid === currentKey) continue;
+    if (!isDuplicateComparableStatus(row.registration?.status)) continue;
 
     const key = participantDuplicateKey(row);
     const matches = keyToOtherRegistrations.get(key) ?? [];

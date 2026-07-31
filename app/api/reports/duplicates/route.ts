@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
           query = query.eq('status', 'PENDING');
         } else if (statusFilter === 'APPROVED') {
           query = query.in('status', [...APPROVED_STATUS_VALUES]);
+        } else {
+          // ALL: PENDING + APPROVED (and null pending-like); never include REJECTED
+          query = query.or('status.is.null,status.neq.REJECTED');
         }
         return query;
       }

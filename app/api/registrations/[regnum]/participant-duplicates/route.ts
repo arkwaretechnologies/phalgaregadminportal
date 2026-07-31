@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import {
   buildParticipantDuplicateMap,
   buildParticipantDuplicateRecord,
+  isDuplicateComparableStatus,
 } from '@/lib/participant-duplicates';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ async function resolveRegistration(regnum: string) {
 
   const { data: regById, error: errorById } = await supabaseServer
     .from('regh')
-    .select('regid, confcode')
+    .select('regid, confcode, status')
     .eq('regid', decodedRegnum)
     .maybeSingle();
 
@@ -61,7 +62,7 @@ async function resolveRegistration(regnum: string) {
   if (isNumeric) {
     const { data: regByBatch, error: errorByBatch } = await supabaseServer
       .from('regh')
-      .select('regid, confcode')
+      .select('regid, confcode, status')
       .eq('batchnum', batchnum)
       .maybeSingle();
 
@@ -83,6 +84,10 @@ export async function GET(
     const registration = await resolveRegistration(params.regnum);
     if (!registration?.regid) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
+    }
+
+    if (!isDuplicateComparableStatus(registration.status)) {
+      return NextResponse.json({ duplicatesByLinenum: {} });
     }
 
     const confcode = String(registration.confcode ?? '').trim();

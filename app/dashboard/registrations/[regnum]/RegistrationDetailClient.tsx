@@ -47,6 +47,8 @@ export default function RegistrationDetailClient({
     ? awardAccompanyingCount
     : registration.regd?.length ?? 0;
   const isAnc = conferenceIsAnc(registration.is_anc);
+  const isRejected =
+    String(registration.status ?? '').trim().toUpperCase() === 'REJECTED';
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
   const router = useRouter();
@@ -463,32 +465,36 @@ export default function RegistrationDetailClient({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <p className="text-sm text-gray-500">Contact Number</p>
-                <button
-                  onClick={openContactEditModal}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                  title="Edit contact details"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
-                </button>
+                {!isRejected && (
+                  <button
+                    onClick={openContactEditModal}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    title="Edit contact details"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
               </div>
               <p className="text-base font-medium">{registration.contactnum || 'N/A'}</p>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <p className="text-sm text-gray-500">Email</p>
-                <button
-                  onClick={openContactEditModal}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                  title="Edit contact details"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
-                </button>
+                {!isRejected && (
+                  <button
+                    onClick={openContactEditModal}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    title="Edit contact details"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
               </div>
               <p className="text-base font-medium">{registration.email || 'N/A'}</p>
             </div>
@@ -605,7 +611,7 @@ export default function RegistrationDetailClient({
                     >
                       Food Preference
                     </th>
-                    {!isApprovedStatus(registration.status) && (
+                    {!isApprovedStatus(registration.status) && !isRejected && (
                       <th
                         className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
                       >
@@ -622,16 +628,18 @@ export default function RegistrationDetailClient({
                       >
                         <span className="inline-flex items-center gap-1.5">
                           {item.lastname}, {item.firstname} {item.middleinit || ''}
-                          <button
-                            type="button"
-                            onClick={() => openNameEdit(item)}
-                            className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                            title="Edit name and designation"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
+                          {!isRejected && (
+                            <button
+                              type="button"
+                              onClick={() => openNameEdit(item)}
+                              className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                              title="Edit name and designation"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
                         </span>
                       </td>
                       <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
@@ -664,15 +672,17 @@ export default function RegistrationDetailClient({
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <span className="inline-flex items-center gap-1.5">
                             {item.tshirtsize || 'N/A'}
-                            <button
-                              onClick={() => openTshirtEdit(item)}
-                              className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                              title="Edit T-shirt size"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
+                            {!isRejected && (
+                              <button
+                                onClick={() => openTshirtEdit(item)}
+                                className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                title="Edit T-shirt size"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            )}
                           </span>
                         </td>
                       )}
@@ -681,7 +691,7 @@ export default function RegistrationDetailClient({
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      {!isApprovedStatus(registration.status) && (
+                      {!isApprovedStatus(registration.status) && !isRejected && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                           <button
                             onClick={() => setParticipantToDelete(item)}

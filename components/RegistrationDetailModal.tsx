@@ -134,6 +134,16 @@ export default function RegistrationDetailModal({
       return;
     }
 
+    const rejected =
+      String(currentRegistration.status ?? '').trim().toUpperCase() === 'REJECTED';
+    if (rejected) {
+      setDuplicatesByLinenum({});
+      setDuplicatesLoading(false);
+      setDuplicatesError(false);
+      setSelectedDuplicateRegid({});
+      return;
+    }
+
     let cancelled = false;
     setDuplicatesLoading(true);
     setDuplicatesError(false);
@@ -178,7 +188,7 @@ export default function RegistrationDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, currentRegistration.regid]);
+  }, [isOpen, currentRegistration.regid, currentRegistration.status]);
 
   const openContactEditModal = () => {
     setContactEmail(currentRegistration.email || '');
@@ -578,13 +588,15 @@ export default function RegistrationDetailModal({
   const participantThPad = isAnc ? 'px-3 py-2.5' : 'px-6 py-3';
   const participantTdPad = isAnc ? 'px-3 py-3' : 'px-6 py-4';
   const registrationIsPending = !isApprovedStatus(currentRegistration.status);
+  const isRejected =
+    String(currentRegistration.status ?? '').trim().toUpperCase() === 'REJECTED';
   const hasAnyParticipantDuplicates = Object.values(duplicatesByLinenum).some(
     (matches) => matches.length > 0
   );
   const showActionsColumn =
     duplicatesLoading ||
-    (registrationIsPending && currentRegistration.status !== 'REJECTED') ||
-    hasAnyParticipantDuplicates;
+    (registrationIsPending && !isRejected) ||
+    (!isRejected && hasAnyParticipantDuplicates);
 
   const renderDuplicateCell = (linenum: number) => {
     if (duplicatesLoading) {
@@ -703,32 +715,36 @@ export default function RegistrationDetailModal({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm text-gray-500">Contact Number</p>
-                    <button
-                      onClick={openContactEditModal}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                      title="Edit contact details"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit
-                    </button>
+                    {!isRejected && (
+                      <button
+                        onClick={openContactEditModal}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                        title="Edit contact details"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                    )}
                   </div>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.contactnum || 'N/A'}</p>
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm text-gray-500">Email</p>
-                    <button
-                      onClick={openContactEditModal}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                      title="Edit contact details"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit
-                    </button>
+                    {!isRejected && (
+                      <button
+                        onClick={openContactEditModal}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                        title="Edit contact details"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                    )}
                   </div>
                   <p className="text-base font-medium text-gray-900">{currentRegistration.email || 'N/A'}</p>
                 </div>
@@ -852,11 +868,13 @@ export default function RegistrationDetailModal({
                         >
                           Food Preference
                         </th>
-                        <th
-                          className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
-                        >
-                          Duplicate
-                        </th>
+                        {!isRejected && (
+                          <th
+                            className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                          >
+                            Duplicate
+                          </th>
+                        )}
                         {showActionsColumn && (
                           <th
                             className={`${participantThPad} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
@@ -874,16 +892,18 @@ export default function RegistrationDetailModal({
                           >
                             <span className="inline-flex items-center gap-1.5">
                               {item.lastname}, {item.firstname} {item.middleinit || ''}
-                              <button
-                                type="button"
-                                onClick={() => openNameEdit(item)}
-                                className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                                title="Edit name and designation"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
+                              {!isRejected && (
+                                <button
+                                  type="button"
+                                  onClick={() => openNameEdit(item)}
+                                  className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                  title="Edit name and designation"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              )}
                             </span>
                           </td>
                           <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
@@ -916,15 +936,17 @@ export default function RegistrationDetailModal({
                             <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                               <span className="inline-flex items-center gap-1.5">
                                 {item.tshirtsize || 'N/A'}
-                                <button
-                                  onClick={() => openTshirtEdit(item)}
-                                  className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
-                                  title="Edit T-shirt size"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
+                                {!isRejected && (
+                                  <button
+                                    onClick={() => openTshirtEdit(item)}
+                                    className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                                    title="Edit T-shirt size"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                )}
                               </span>
                             </td>
                           )}
@@ -933,9 +955,11 @@ export default function RegistrationDetailModal({
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
-                          <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
-                            {renderDuplicateCell(item.linenum)}
-                          </td>
+                          {!isRejected && (
+                            <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
+                              {renderDuplicateCell(item.linenum)}
+                            </td>
+                          )}
                           {showActionsColumn && (
                             <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
                               {duplicatesLoading ? (
@@ -943,11 +967,9 @@ export default function RegistrationDetailModal({
                               ) : (
                               (() => {
                                 const duplicates = duplicatesByLinenum[String(item.linenum)] ?? [];
-                                const showDuplicateView = duplicates.length > 0;
+                                const showDuplicateView = !isRejected && duplicates.length > 0;
                                 const showDelete =
-                                  String(currentRegistration.status ?? '').trim().toUpperCase() !==
-                                    'REJECTED' &&
-                                  (registrationIsPending || showDuplicateView);
+                                  !isRejected && (registrationIsPending || showDuplicateView);
 
                                 if (!showDelete && !showDuplicateView) {
                                   return null;
