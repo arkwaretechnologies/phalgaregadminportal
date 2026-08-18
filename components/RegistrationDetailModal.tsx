@@ -108,6 +108,10 @@ export default function RegistrationDetailModal({
   const [contactSuccess, setContactSuccess] = useState('');
   const [validationSaving, setValidationSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [showRemarksEditModal, setShowRemarksEditModal] = useState(false);
+  const [remarksEditValue, setRemarksEditValue] = useState(registration.remarks || '');
+  const [remarksSaving, setRemarksSaving] = useState(false);
+  const [remarksError, setRemarksError] = useState('');
 
   const [duplicatesByLinenum, setDuplicatesByLinenum] = useState<
     Record<string, DuplicateRegistrationMatch[]>
@@ -122,6 +126,7 @@ export default function RegistrationDetailModal({
     setCurrentRegistration(registration);
     setContactEmail(registration.email || '');
     setContactPhone(registration.contactnum || '');
+    setRemarksEditValue(registration.remarks || '');
     setValidationError('');
   }, [registration]);
 
@@ -202,6 +207,55 @@ export default function RegistrationDetailModal({
     setShowContactEditModal(false);
     setContactError('');
     setContactSuccess('');
+  };
+
+  const openRemarksEditModal = () => {
+    setRemarksEditValue(currentRegistration.remarks || '');
+    setRemarksError('');
+    setShowRemarksEditModal(true);
+  };
+
+  const closeRemarksEditModal = () => {
+    setShowRemarksEditModal(false);
+    setRemarksError('');
+  };
+
+  const handleSaveRemarks = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRemarksSaving(true);
+    setRemarksError('');
+
+    const nextRemarks = remarksEditValue.trim() || null;
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(currentRegistration.regid)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ remarks: nextRemarks }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setRemarksError(data.error || 'Failed to update remarks');
+        setRemarksSaving(false);
+        return;
+      }
+
+      setCurrentRegistration((prev) => ({
+        ...prev,
+        remarks: nextRemarks,
+      }));
+      closeRemarksEditModal();
+      setRemarksSaving(false);
+      onUpdate();
+    } catch (err) {
+      setRemarksError('An error occurred. Please try again.');
+      setRemarksSaving(false);
+    }
   };
 
   const canToggleValidation = (item: RegistrationDetail) =>
@@ -774,6 +828,27 @@ export default function RegistrationDetailModal({
                     <p className="text-base font-medium text-gray-900">{currentRegistration.confcode}</p>
                   </div>
                 )}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-gray-500">Remarks</p>
+                    {!isRejected && (
+                      <button
+                        type="button"
+                        onClick={openRemarksEditModal}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                        title="Edit remarks"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-base font-medium text-gray-900 whitespace-pre-wrap">
+                    {currentRegistration.remarks || '—'}
+                  </p>
+                </div>
               </div>
 
               {/* Payment Proof Section */}
@@ -781,13 +856,6 @@ export default function RegistrationDetailModal({
                 batchnum={currentRegistration.batchnum} 
                 regid={currentRegistration.regid}
               />
-
-              {currentRegistration.remarks && (
-                <div className="mt-6 p-4 bg-white rounded-md border border-gray-200">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Remarks</p>
-                  <p className="text-sm text-gray-600">{currentRegistration.remarks}</p>
-                </div>
-              )}
 
               {!isApprovedStatus(currentRegistration.status) && currentRegistration.status !== 'REJECTED' && (
                 <div className="mt-6">
@@ -1334,6 +1402,67 @@ export default function RegistrationDetailModal({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Remarks Modal */}
+      {showRemarksEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto my-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit Remarks
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Update remarks for this registration
+              </p>
+            </div>
+            <form onSubmit={handleSaveRemarks} className="p-6 space-y-4">
+              {remarksError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">{remarksError}</p>
+                </div>
+              )}
+              <div>
+                <label htmlFor="modal_remarks" className="block text-sm font-medium text-gray-700 mb-1">
+                  Remarks
+                </label>
+                <textarea
+                  id="modal_remarks"
+                  rows={4}
+                  value={remarksEditValue}
+                  onChange={(e) => setRemarksEditValue(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Optional remarks..."
+                  disabled={remarksSaving}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeRemarksEditModal}
+                  disabled={remarksSaving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={remarksSaving}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {remarksSaving ? (
+                    <>
+                      <LoadingSpinner />
+                      <span>Saving…</span>
+                    </>
+                  ) : (
+                    <span>Save</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

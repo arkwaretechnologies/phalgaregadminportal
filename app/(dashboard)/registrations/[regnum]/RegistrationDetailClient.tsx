@@ -83,6 +83,10 @@ export default function RegistrationDetailClient({
   const [contactError, setContactError] = useState('');
   const [validationSaving, setValidationSaving] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [showRemarksEdit, setShowRemarksEdit] = useState(false);
+  const [remarksEditValue, setRemarksEditValue] = useState('');
+  const [remarksSaving, setRemarksSaving] = useState(false);
+  const [remarksError, setRemarksError] = useState('');
 
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A';
@@ -338,6 +342,43 @@ export default function RegistrationDetailClient({
     }
   };
 
+  const openRemarksEdit = () => {
+    setRemarksEditValue(registration.remarks ?? '');
+    setRemarksError('');
+    setShowRemarksEdit(true);
+  };
+
+  const handleSaveRemarks = async () => {
+    setRemarksSaving(true);
+    setRemarksError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(registration.regid)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ remarks: remarksEditValue.trim() || null }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setRemarksError(data.error || 'Failed to update remarks');
+        setRemarksSaving(false);
+        return;
+      }
+
+      setShowRemarksEdit(false);
+      setRemarksSaving(false);
+      router.refresh();
+    } catch (err) {
+      setRemarksError('An error occurred. Please try again.');
+      setRemarksSaving(false);
+    }
+  };
+
   const canToggleValidation = () =>
     !isApprovedStatus(registration.status) && registration.status !== 'REJECTED';
 
@@ -482,14 +523,28 @@ export default function RegistrationDetailClient({
                 <p className="text-base font-medium">{registration.confcode}</p>
               </div>
             )}
-          </div>
-
-          {registration.remarks && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-md">
-              <p className="text-sm font-medium text-gray-700 mb-1">Remarks</p>
-              <p className="text-sm text-gray-600">{registration.remarks}</p>
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-gray-500">Remarks</p>
+                {!isRejected && (
+                  <button
+                    type="button"
+                    onClick={openRemarksEdit}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    title="Edit remarks"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+              </div>
+              <p className="text-base font-medium whitespace-pre-wrap">
+                {registration.remarks || '—'}
+              </p>
             </div>
-          )}
+          </div>
 
           {!isApprovedStatus(registration.status) && registration.status !== 'REJECTED' && (
             <div className="mt-6">
@@ -926,6 +981,63 @@ export default function RegistrationDetailClient({
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
               >
                 {nameSaving ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span>Save</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit remarks modal */}
+      {showRemarksEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Edit remarks
+            </h2>
+            <div className="mb-4">
+              <label htmlFor="remarks-edit" className="block text-sm font-medium text-gray-700 mb-1">
+                Remarks
+              </label>
+              <textarea
+                id="remarks-edit"
+                rows={4}
+                value={remarksEditValue}
+                onChange={(e) => setRemarksEditValue(e.target.value)}
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Optional remarks..."
+              />
+            </div>
+            {remarksError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{remarksError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRemarksEdit(false);
+                  setRemarksError('');
+                }}
+                disabled={remarksSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveRemarks}
+                disabled={remarksSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {remarksSaving ? (
                   <>
                     <LoadingSpinner />
                     <span>Saving…</span>

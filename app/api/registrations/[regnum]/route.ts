@@ -148,15 +148,16 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { email, contactnum } = body as {
+    const { email, contactnum, remarks } = body as {
       email?: string;
       contactnum?: string;
+      remarks?: string | null;
     };
 
     // Validate at least one field is being updated
-    if (email === undefined && contactnum === undefined) {
+    if (email === undefined && contactnum === undefined && remarks === undefined) {
       return NextResponse.json(
-        { error: 'At least one field (email or contactnum) must be provided' },
+        { error: 'At least one field (email, contactnum, or remarks) must be provided' },
         { status: 400 }
       );
     }
@@ -200,19 +201,27 @@ export async function PATCH(
     if (contactnum !== undefined) {
       // Store only digits for consistency
       updateData.contactnum = contactnum?.trim().replace(/\D/g, '') || null;
-    }    // Update the registration
+    }
+    if (remarks !== undefined) {
+      const trimmed = remarks == null ? '' : String(remarks).trim();
+      updateData.remarks = trimmed === '' ? null : trimmed;
+    }
+
+    // Update the registration
     const { data: updatedReg, error: updateError } = await supabaseServer
       .from('regh')
       .update(updateData)
       .eq('regid', decodedRegnum)
-      .select('regid, email, contactnum')
+      .select('regid, email, contactnum, remarks')
       .single();
 
     if (updateError) {
       console.error('Registration update error:', updateError);
       return NextResponse.json({ error: 'Failed to update registration' }, { status: 500 });
-    }    return NextResponse.json({
-      message: 'Contact details updated successfully',
+    }
+
+    return NextResponse.json({
+      message: 'Registration updated successfully',
       registration: updatedReg,
     });
   } catch (error: any) {
