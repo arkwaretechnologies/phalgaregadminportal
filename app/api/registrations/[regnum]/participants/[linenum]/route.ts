@@ -146,6 +146,7 @@ export async function PATCH(
       'middleinit',
       'suffix',
       'designation',
+      'food_preference',
     ] as const;
 
     for (const field of fields) {
@@ -183,7 +184,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            'At least one of tshirtsize, lastname, firstname, middleinit, suffix, or designation is required',
+            'At least one of tshirtsize, lastname, firstname, middleinit, suffix, designation, or food_preference is required',
         },
         { status: 400 }
       );

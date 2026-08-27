@@ -6,7 +6,7 @@ import { RegistrationDetail, RegistrationDetailItem, Position } from '@/types';
 import ApprovalModal from '@/components/ApprovalModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { conferenceIsAnc } from '@/lib/conference-is-anc';
-import { formatFoodPreference } from '@/lib/food-preference';
+import { FOOD_PREFERENCE_OPTIONS, formatFoodPreference } from '@/lib/food-preference';
 import {
   ACCEPTED_AWARD_STATUS,
   APPROVED_PARTICIPANT_AND_ACCOMPANYING_LEGACY,
@@ -63,6 +63,12 @@ export default function RegistrationDetailClient({
   const [tshirtSaving, setTshirtSaving] = useState(false);
   const [tshirtError, setTshirtError] = useState('');
 
+  // Food preference edit state
+  const [participantToEditFood, setParticipantToEditFood] = useState<RegistrationDetailItem | null>(null);
+  const [foodEditValue, setFoodEditValue] = useState('');
+  const [foodSaving, setFoodSaving] = useState(false);
+  const [foodError, setFoodError] = useState('');
+
   // Name / designation edit state
   const [participantToEditName, setParticipantToEditName] = useState<RegistrationDetailItem | null>(null);
   const [nameEditLastname, setNameEditLastname] = useState('');
@@ -77,6 +83,7 @@ export default function RegistrationDetailClient({
 
   // Contact edit state
   const [showContactEditModal, setShowContactEditModal] = useState(false);
+  const [contactPerson, setContactPerson] = useState(registration.contactperson || '');
   const [contactEmail, setContactEmail] = useState(registration.email || '');
   const [contactPhone, setContactPhone] = useState(registration.contactnum || '');
   const [contactSaving, setContactSaving] = useState(false);
@@ -257,6 +264,47 @@ export default function RegistrationDetailClient({
     }
   };
 
+  const openFoodEdit = (item: RegistrationDetailItem) => {
+    setParticipantToEditFood(item);
+    setFoodEditValue(formatFoodPreference(item.food_preference) ?? '');
+    setFoodError('');
+  };
+
+  const handleSaveFood = async () => {
+    if (!participantToEditFood) return;
+
+    setFoodSaving(true);
+    setFoodError('');
+
+    try {
+      const response = await fetch(
+        `/api/registrations/${encodeURIComponent(registration.regid)}/participants/${participantToEditFood.linenum}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            food_preference: foodEditValue.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFoodError(data.error || 'Failed to update food preference');
+        setFoodSaving(false);
+        return;
+      }
+
+      setParticipantToEditFood(null);
+      setFoodSaving(false);
+      router.refresh();
+    } catch (err) {
+      setFoodError('An error occurred. Please try again.');
+      setFoodSaving(false);
+    }
+  };
+
   const openNameEdit = async (item: RegistrationDetailItem) => {
     setParticipantToEditName(item);
     setNameEditLastname((item.lastname ?? '').toUpperCase());
@@ -346,6 +394,7 @@ export default function RegistrationDetailClient({
   };
 
   const openContactEditModal = () => {
+    setContactPerson(registration.contactperson || '');
     setContactEmail(registration.email || '');
     setContactPhone(registration.contactnum || '');
     setContactError('');
@@ -415,6 +464,7 @@ export default function RegistrationDetailClient({
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            contactperson: contactPerson.trim().toUpperCase() || null,
             email: contactEmail.trim() || null,
             contactnum: contactPhone.trim() || null,
           }),
@@ -506,43 +556,30 @@ export default function RegistrationDetailClient({
               </>
             )}
             <div>
-              <p className="text-sm text-gray-500 mb-1">Contact Person</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-gray-500">Contact Person</p>
+                {!isRejected && (
+                  <button
+                    type="button"
+                    onClick={openContactEditModal}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    title="Edit contact details"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+              </div>
               <p className="text-base font-medium">{registration.contactperson || 'N/A'}</p>
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-gray-500">Contact Number</p>
-                {!isRejected && (
-                  <button
-                    onClick={openContactEditModal}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                    title="Edit contact details"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </button>
-                )}
-              </div>
+              <p className="text-sm text-gray-500 mb-1">Contact Number</p>
               <p className="text-base font-medium">{registration.contactnum || 'N/A'}</p>
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-gray-500">Email</p>
-                {!isRejected && (
-                  <button
-                    onClick={openContactEditModal}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                    title="Edit contact details"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </button>
-                )}
-              </div>
+              <p className="text-sm text-gray-500 mb-1">Email</p>
               <p className="text-base font-medium">{registration.email || 'N/A'}</p>
             </div>
             <div>
@@ -748,9 +785,23 @@ export default function RegistrationDetailClient({
                         </td>
                       )}
                       <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
-                        {formatFoodPreference(item.food_preference) ?? (
-                          <span className="text-gray-400">—</span>
-                        )}
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatFoodPreference(item.food_preference) ?? (
+                            <span className="text-gray-400">—</span>
+                          )}
+                          {!isRejected && (
+                            <button
+                              type="button"
+                              onClick={() => openFoodEdit(item)}
+                              className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 rounded hover:bg-indigo-50"
+                              title="Edit food preference"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
+                        </span>
                       </td>
                       {!isApprovedStatus(registration.status) && !isRejected && (
                         <td className={`${participantTdPad} whitespace-nowrap text-sm text-gray-500`}>
@@ -902,6 +953,82 @@ export default function RegistrationDetailClient({
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
               >
                 {tshirtSaving ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <span>Save</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Food Preference Modal */}
+      {participantToEditFood && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-auto my-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              Edit Food Preference
+            </h2>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Participant</p>
+              <div className="bg-gray-50 p-3 rounded-md">
+                <p className="text-sm font-medium text-gray-900">
+                  {participantToEditFood.lastname}, {participantToEditFood.firstname}{' '}
+                  {participantToEditFood.middleinit || ''}
+                </p>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label htmlFor="food-preference-edit" className="block text-sm font-medium text-gray-700 mb-1">
+                Food Preference
+              </label>
+              <select
+                id="food-preference-edit"
+                value={foodEditValue}
+                onChange={(e) => setFoodEditValue(e.target.value)}
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                disabled={foodSaving}
+              >
+                <option value="">Not specified</option>
+                {FOOD_PREFERENCE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+                {foodEditValue &&
+                  !(FOOD_PREFERENCE_OPTIONS as readonly string[]).includes(foodEditValue) && (
+                    <option value={foodEditValue}>{foodEditValue}</option>
+                  )}
+              </select>
+            </div>
+            {foodError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{foodError}</p>
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setParticipantToEditFood(null);
+                  setFoodError('');
+                }}
+                disabled={foodSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFood}
+                disabled={foodSaving}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors disabled:opacity-50"
+              >
+                {foodSaving ? (
                   <>
                     <LoadingSpinner />
                     <span>Saving…</span>
@@ -1112,7 +1239,7 @@ export default function RegistrationDetailClient({
                 Edit Contact Details
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Update email and phone number for the contact person
+                Update contact person, email, and phone number
               </p>
             </div>
             <form onSubmit={handleSaveContactDetails} className="p-6 space-y-4">
@@ -1126,6 +1253,20 @@ export default function RegistrationDetailClient({
                   <p className="text-sm text-green-800">{contactSuccess}</p>
                 </div>
               )}
+              <div>
+                <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Person
+                </label>
+                <input
+                  type="text"
+                  id="contact_person"
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="e.g., JUAN D. DELA CRUZ"
+                  disabled={contactSaving}
+                />
+              </div>
               <div>
                 <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email Address

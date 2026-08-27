@@ -134,7 +134,7 @@ export async function GET(
   }
 }
 
-// PATCH - Update registration contact details (email and contactnum only)
+// PATCH - Update registration header fields (contact person, email, contactnum, remarks)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { regnum: string } }
@@ -148,16 +148,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { email, contactnum, remarks } = body as {
+    const { email, contactnum, remarks, contactperson } = body as {
       email?: string;
       contactnum?: string;
       remarks?: string | null;
+      contactperson?: string | null;
     };
 
     // Validate at least one field is being updated
-    if (email === undefined && contactnum === undefined && remarks === undefined) {
+    if (
+      email === undefined &&
+      contactnum === undefined &&
+      remarks === undefined &&
+      contactperson === undefined
+    ) {
       return NextResponse.json(
-        { error: 'At least one field (email, contactnum, or remarks) must be provided' },
+        {
+          error:
+            'At least one field (email, contactnum, remarks, or contactperson) must be provided',
+        },
         { status: 400 }
       );
     }
@@ -206,13 +215,18 @@ export async function PATCH(
       const trimmed = remarks == null ? '' : String(remarks).trim();
       updateData.remarks = trimmed === '' ? null : trimmed;
     }
+    if (contactperson !== undefined) {
+      const trimmed =
+        contactperson == null ? '' : String(contactperson).trim().toUpperCase();
+      updateData.contactperson = trimmed === '' ? null : trimmed;
+    }
 
     // Update the registration
     const { data: updatedReg, error: updateError } = await supabaseServer
       .from('regh')
       .update(updateData)
       .eq('regid', decodedRegnum)
-      .select('regid, email, contactnum, remarks')
+      .select('regid, email, contactnum, remarks, contactperson')
       .single();
 
     if (updateError) {

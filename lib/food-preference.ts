@@ -1,3 +1,6 @@
+/** Canonical options for editing `regd.food_preference`. */
+export const FOOD_PREFERENCE_OPTIONS = ['ANY DISH', 'NON Pork'] as const;
+
 /** True when regd.food_preference has a non-empty trimmed value. */
 export function hasFoodPreference(value: unknown): boolean {
   if (value == null) return false;
