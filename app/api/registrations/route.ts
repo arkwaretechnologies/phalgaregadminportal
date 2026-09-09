@@ -16,6 +16,44 @@ import { invalidateReportCacheForConference } from '@/lib/redis';
 // Force dynamic rendering - this route uses Supabase
 export const dynamic = 'force-dynamic';
 
+/** PostgREST defaults to 1000 rows; page until all matching rows are collected. */
+async function fetchAllRecords(
+  table: string,
+  queryBuilder: (query: any) => any,
+  options?: { select?: string; pageSize?: number }
+): Promise<{ data: any[]; error: any }> {
+  const pageSize = options?.pageSize ?? 1000;
+  const select =
+    options?.select ??
+    (table === 'regh'
+      ? '*, upload_notification(proof_uploaded_at, last_viewed_at)'
+      : '*');
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase.from(table).select(select);
+    query = queryBuilder(query);
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error } = await query;
+    if (error) {
+      return { data: [], error };
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return { data: allData, error: null };
+}
+
 async function getNextBatchNumber(confcode: string): Promise<number> {
   // Get the highest batch number for THIS conference
   // Each conference has its own batch number sequence (1, 2, 3...)
@@ -53,45 +91,47 @@ export async function GET(request: NextRequest) {
     const withAttachment = searchParams.get('withAttachment');
     const onValidation = searchParams.get('onValidation');
 
-    let query = supabase
-      .from('regh')
-      .select('*, upload_notification(proof_uploaded_at, last_viewed_at)');
-
     const filterOnValidation = String(onValidation ?? '').trim().toUpperCase() === 'Y';
-    if (filterOnValidation) {
-      query = query.order('validation_no', { ascending: true });
-    } else {
-      query = query.order('regdate', { ascending: false });
-    }
 
-    // Filter by conference code
-    if (confcode) {
-      query = query.eq('confcode', confcode);
-    }
-
-    // Filter by status (convert to uppercase for consistency)
-    if (status && status !== 'all') {
-      const su = status.toUpperCase();
-      if (su === 'APPROVED') {
-        query = query.in('status', [...APPROVED_STATUS_VALUES]);
+    const applyReghFilters = (query: any) => {
+      if (filterOnValidation) {
+        // Secondary regid order keeps page ranges stable when validation_no ties
+        query = query
+          .order('validation_no', { ascending: true })
+          .order('regid', { ascending: true });
       } else {
-        query = query.eq('status', su);
+        query = query
+          .order('regdate', { ascending: false })
+          .order('regid', { ascending: true });
       }
-    }
 
-    // Filter to registrations currently marked On Validation
-    if (filterOnValidation) {
-      query = query.eq('is_validating', 'Y');
-    }
+      if (confcode) {
+        query = query.eq('confcode', confcode);
+      }
 
-    // Search functionality - search in regh fields
-    if (search) {
-      query = query.or(
-        `regid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
-      );
-    }
+      if (status && status !== 'all') {
+        const su = status.toUpperCase();
+        if (su === 'APPROVED') {
+          query = query.in('status', [...APPROVED_STATUS_VALUES]);
+        } else {
+          query = query.eq('status', su);
+        }
+      }
 
-    const { data: registrations, error } = await query;
+      if (filterOnValidation) {
+        query = query.eq('is_validating', 'Y');
+      }
+
+      if (search) {
+        query = query.or(
+          `regid.ilike.%${search}%,email.ilike.%${search}%,contactperson.ilike.%${search}%`
+        );
+      }
+
+      return query;
+    };
+
+    const { data: registrations, error } = await fetchAllRecords('regh', applyReghFilters);
 
     // If search term is provided, also search for participant names in regd table
     // and merge those registrations into the results
@@ -99,95 +139,106 @@ export async function GET(request: NextRequest) {
     if (search && !error) {
       const searchTerm = search.trim();
       const searchParts = searchTerm.split(/\s+/).filter(Boolean);
-      
+
       // Collect all matching regids from different search strategies
       const matchingRegids = new Set<string>();
-      
+
       // Strategy 1: Search the exact term in firstname or lastname
-      let query1 = supabase
-        .from('regd')
-        .select('regid')
-        .or(`firstname.ilike.%${searchTerm}%,lastname.ilike.%${searchTerm}%`);
-      
-      if (confcode) {
-        query1 = query1.eq('confcode', confcode);
-      }
-      
-      const { data: matches1 } = await query1;
+      const { data: matches1 } = await fetchAllRecords(
+        'regd',
+        (query) => {
+          query = query.or(
+            `firstname.ilike.%${searchTerm}%,lastname.ilike.%${searchTerm}%`
+          );
+          if (confcode) {
+            query = query.eq('confcode', confcode);
+          }
+          return query;
+        },
+        { select: 'regid' }
+      );
       matches1?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
-      
+
       // Strategy 2: For multi-word searches, try firstname contains first word AND lastname contains last word
-      // This handles full name searches like "Juan Dela Cruz" where firstname="Juan" and lastname="Dela Cruz"
       if (searchParts.length >= 2) {
         const firstWord = searchParts[0];
         const lastWord = searchParts[searchParts.length - 1];
-        
-        let query2 = supabase
-          .from('regd')
-          .select('regid')
-          .ilike('firstname', `%${firstWord}%`)
-          .ilike('lastname', `%${lastWord}%`);
-        
-        if (confcode) {
-          query2 = query2.eq('confcode', confcode);
-        }
-        
-        const { data: matches2 } = await query2;
+
+        const { data: matches2 } = await fetchAllRecords(
+          'regd',
+          (query) => {
+            query = query
+              .ilike('firstname', `%${firstWord}%`)
+              .ilike('lastname', `%${lastWord}%`);
+            if (confcode) {
+              query = query.eq('confcode', confcode);
+            }
+            return query;
+          },
+          { select: 'regid' }
+        );
         matches2?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
-        
-        // Strategy 3: Also try the reverse - last word in firstname, first word in lastname
-        // This handles cases where names might be entered in different orders
-        let query3 = supabase
-          .from('regd')
-          .select('regid')
-          .ilike('firstname', `%${lastWord}%`)
-          .ilike('lastname', `%${firstWord}%`);
-        
-        if (confcode) {
-          query3 = query3.eq('confcode', confcode);
-        }
-        
-        const { data: matches3 } = await query3;
+
+        // Strategy 3: reverse word order
+        const { data: matches3 } = await fetchAllRecords(
+          'regd',
+          (query) => {
+            query = query
+              .ilike('firstname', `%${lastWord}%`)
+              .ilike('lastname', `%${firstWord}%`);
+            if (confcode) {
+              query = query.eq('confcode', confcode);
+            }
+            return query;
+          },
+          { select: 'regid' }
+        );
         matches3?.forEach((r: any) => r.regid && matchingRegids.add(r.regid));
       }
-      
+
       // Convert Set to array and filter out regids already in the results
       const existingRegids = new Set((registrations || []).map((r: any) => r.regid));
-      additionalRegids = Array.from(matchingRegids).filter(regid => !existingRegids.has(regid));
+      additionalRegids = Array.from(matchingRegids).filter((regid) => !existingRegids.has(regid));
     }
 
     // Fetch additional registrations that match participant names
     let allRegistrations = registrations || [];
     if (additionalRegids.length > 0) {
-      let additionalQuery = supabase
-        .from('regh')
-        .select('*, upload_notification(proof_uploaded_at, last_viewed_at)')
-        .in('regid', additionalRegids);
+      // Chunk .in() lists to stay under PostgREST URL limits
+      const REGID_IN_CHUNK = 120;
+      for (let i = 0; i < additionalRegids.length; i += REGID_IN_CHUNK) {
+        const chunk = additionalRegids.slice(i, i + REGID_IN_CHUNK);
+        const { data: additionalRegs, error: additionalError } = await fetchAllRecords(
+          'regh',
+          (query) => {
+            query = query.in('regid', chunk);
+            if (filterOnValidation) {
+              query = query
+                .order('validation_no', { ascending: true })
+                .order('regid', { ascending: true });
+            } else {
+              query = query
+                .order('regdate', { ascending: false })
+                .order('regid', { ascending: true });
+            }
+            if (status && status !== 'all') {
+              const su = status.toUpperCase();
+              if (su === 'APPROVED') {
+                query = query.in('status', [...APPROVED_STATUS_VALUES]);
+              } else {
+                query = query.eq('status', su);
+              }
+            }
+            if (filterOnValidation) {
+              query = query.eq('is_validating', 'Y');
+            }
+            return query;
+          }
+        );
 
-      if (filterOnValidation) {
-        additionalQuery = additionalQuery.order('validation_no', { ascending: true });
-      } else {
-        additionalQuery = additionalQuery.order('regdate', { ascending: false });
-      }
-
-      // Apply status filter if specified
-      if (status && status !== 'all') {
-        const su = status.toUpperCase();
-        if (su === 'APPROVED') {
-          additionalQuery = additionalQuery.in('status', [...APPROVED_STATUS_VALUES]);
-        } else {
-          additionalQuery = additionalQuery.eq('status', su);
+        if (!additionalError && additionalRegs) {
+          allRegistrations = [...allRegistrations, ...additionalRegs];
         }
-      }
-
-      if (filterOnValidation) {
-        additionalQuery = additionalQuery.eq('is_validating', 'Y');
-      }
-
-      const { data: additionalRegs, error: additionalError } = await additionalQuery;
-      
-      if (!additionalError && additionalRegs) {
-        allRegistrations = [...allRegistrations, ...additionalRegs];
       }
     }
 
