@@ -284,18 +284,18 @@ export default function ApprovedParticipantsClient({
             row['PRC No'] = p.prcnum || 'N/A';
             row['Expiry Date'] = formatDateOnly(p.expirydate);
           }
-          row['Registration Date'] = formatDate(p.registration?.regdate ?? null);
+          row['T-Shirt Size'] = p.tshirtsize || 'N/A';
           return row;
         });
 
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = isAncConf
           ? [
-              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 },
-              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 30 },
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 16 },
+              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
             ]
           : [
-              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 30 },
+              { wch: 30 }, { wch: 45 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 12 },
             ];
         XLSX.utils.book_append_sheet(wb, ws, 'Approved Participants');
         XLSX.writeFile(wb, `${safeConfName}_approved_participants.xlsx`);

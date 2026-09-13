@@ -322,7 +322,7 @@ export default function PendingReportClient({
             row['Contact Number'] = p.contactnum || 'N/A';
             row['Email'] = p.email || 'N/A';
           }
-          row['Registration Date'] = formatDate(p.registration?.regdate ?? null);
+          row['T-Shirt Size'] = p.tshirtsize || 'N/A';
           return row;
         });
 
@@ -330,11 +330,11 @@ export default function PendingReportClient({
         ws['!cols'] = isAncConf
           ? [
               { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
-              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 30 },
+              { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
             ]
           : [
               { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
-              { wch: 18 }, { wch: 30 }, { wch: 30 },
+              { wch: 18 }, { wch: 30 }, { wch: 12 },
             ];
         XLSX.utils.book_append_sheet(wb, ws, 'Pending Participants');
         XLSX.writeFile(wb, `${safeConfName}_pending_participants.xlsx`);
