@@ -18,6 +18,7 @@ interface ApprovedRegistration {
   email: string | null;
   regdate: string | null;
   participantCount: number;
+  tshirtSizes?: string | null;
 }
 
 interface Participant {
@@ -255,14 +256,14 @@ export default function ApprovedParticipantsClient({
           'LGU': reg.lgu || 'N/A',
           'Email': reg.email || 'N/A',
           'Contact Number': reg.contactnum || 'N/A',
-          'Registration Date': formatDate(reg.regdate),
+          'T-Shirt Size': reg.tshirtSizes || 'N/A',
           'Participant Count': reg.participantCount,
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = [
           { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 },
-          { wch: 30 }, { wch: 18 }, { wch: 30 }, { wch: 18 },
+          { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
         ];
         XLSX.utils.book_append_sheet(wb, ws, 'Approved Registrations');
         XLSX.writeFile(wb, `${safeConfName}_approved_registrations.xlsx`);

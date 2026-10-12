@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { formatFoodPreference } from '@/lib/food-preference';
 import {
   buildReportCacheKey,
   storeAndRespondReport,
@@ -141,10 +142,20 @@ export async function GET(request: NextRequest) {
 
     // Default: return all pending registrations with participant counts
     const participantCountMap: Record<string, number> = {};
+    const tshirtSizesMap: Record<string, string[]> = {};
+    const foodPreferencesMap: Record<string, string[]> = {};
     allParticipants.forEach((p: any) => {
       const regid = p.regid;
       if (regid) {
         participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
+        const size = String(p.tshirtsize ?? '').trim();
+        if (size) {
+          (tshirtSizesMap[regid] ||= []).push(size);
+        }
+        const preference = formatFoodPreference(p.food_preference);
+        if (preference) {
+          (foodPreferencesMap[regid] ||= []).push(preference);
+        }
       }
     });
 
@@ -158,6 +169,8 @@ export async function GET(request: NextRequest) {
       email: reg.email,
       regdate: reg.regdate,
       participantCount: participantCountMap[reg.regid] || 0,
+      tshirtSizes: (tshirtSizesMap[reg.regid] || []).join(', ') || null,
+      foodPreferences: (foodPreferencesMap[reg.regid] || []).join(', ') || null,
     }));
 
     return storeAndRespondReport(cacheKey, {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Conference } from '@/types';
 import * as XLSX from 'xlsx';
 import Pagination from '@/components/Pagination';
+import { formatFoodPreference } from '@/lib/food-preference';
 
 interface PendingRegistration {
   regid: string;
@@ -16,6 +17,8 @@ interface PendingRegistration {
   email: string | null;
   regdate: string | null;
   participantCount: number;
+  tshirtSizes?: string | null;
+  foodPreferences?: string | null;
 }
 
 interface PendingParticipant {
@@ -290,16 +293,17 @@ export default function PendingReportClient({
           'Contact Person': reg.contactperson || 'N/A',
           'Province': reg.province || 'N/A',
           'LGU': reg.lgu || 'N/A',
+          'Food Preference': reg.foodPreferences || 'N/A',
           'Email': reg.email || 'N/A',
           'Contact Number': reg.contactnum || 'N/A',
-          'Registration Date': formatDate(reg.regdate),
+          'T-Shirt Size': reg.tshirtSizes || 'N/A',
           'Participant Count': reg.participantCount,
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = [
-          { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 },
-          { wch: 30 }, { wch: 18 }, { wch: 30 }, { wch: 18 },
+          { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 22 },
+          { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
         ];
         XLSX.utils.book_append_sheet(wb, ws, 'Pending Registrations');
         XLSX.writeFile(wb, `${safeConfName}_pending_registrations.xlsx`);
@@ -312,6 +316,7 @@ export default function PendingReportClient({
             'Registration ID': p.registration?.regid || 'N/A',
             'Province': p.province || 'N/A',
             'LGU': p.lgu || 'N/A',
+            'Food Preference': formatFoodPreference(p.food_preference) || 'N/A',
           };
           if (isAncConf) {
             row['Contact No.'] = p.contactnum || 'N/A';
@@ -329,11 +334,11 @@ export default function PendingReportClient({
         const ws = XLSX.utils.json_to_sheet(data);
         ws['!cols'] = isAncConf
           ? [
-              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 16 },
               { wch: 18 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
             ]
           : [
-              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 },
+              { wch: 30 }, { wch: 45 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 16 },
               { wch: 18 }, { wch: 30 }, { wch: 12 },
             ];
         XLSX.utils.book_append_sheet(wb, ws, 'Pending Participants');

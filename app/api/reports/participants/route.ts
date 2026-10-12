@@ -225,10 +225,15 @@ export async function GET(request: NextRequest) {
 
     if (view === 'registration') {
       const participantCountMap: Record<string, number> = {};
+      const tshirtSizesMap: Record<string, string[]> = {};
       allParticipants.forEach((p: any) => {
         const regid = p.regid;
         if (regid) {
           participantCountMap[regid] = (participantCountMap[regid] || 0) + 1;
+          const size = String(p.tshirtsize ?? '').trim();
+          if (size) {
+            (tshirtSizesMap[regid] ||= []).push(size);
+          }
         }
       });
 
@@ -243,6 +248,7 @@ export async function GET(request: NextRequest) {
         email: reg.email,
         regdate: reg.regdate,
         participantCount: participantCountMap[reg.regid] || 0,
+        tshirtSizes: (tshirtSizesMap[reg.regid] || []).join(', ') || null,
       }));
 
       return storeAndRespondReport(cacheKey, {
